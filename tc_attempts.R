@@ -5,6 +5,7 @@ library(raster)
 library(RStoolbox)
 library(viridis)
 
+
 # ## Example ----------------
 # data(lsat)
 # lsat_tc <- tasseledCap(lsat[[c(1:5,7)]], sat="Landsat5TM")
