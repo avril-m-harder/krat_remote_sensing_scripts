@@ -10,7 +10,7 @@ library(TrackReconstruction)
 `%notin%` <- Negate(`%in%`)
 
 ## Read in some Landsat 7 data
-setwd('/Users/Avril/Documents/krat_remote_sensing/proposal_sat_map_stuff/LE07_L1TP_035038_20020817_20160928_01_T1/')
+setwd('/Users/Avril/Documents/krat_remote_sensing/archive/proposal_sat_map_stuff/LE07_L1TP_035038_20020817_20160928_01_T1/')
 all_landsat_bands <- list.files(pattern = glob2rx("*TIF$"),
                                 full.names = TRUE)
 
@@ -86,7 +86,7 @@ par(mar=c(5.1,4.1,4.1,2.1), mgp=c(3,1,0))
 # spDistsN1(shared[2,], shared[4,]) ## 0
   
 ##### 2. Combining points in 2 waypoint files Peter sent to see how many mounds are un-GPS-marked #####
-setwd('/Users/Avril/Documents/krat_remote_sensing/')
+setwd('/Users/Avril/Documents/krat_remote_sensing/raw_data/')
 pts <- read.csv('1-25-2021_Rucker_GPS.csv', header=FALSE) ## read in smaller file
 l.pts <- read.csv('Rucker.csv', header=FALSE) ## read in larger file
 gps.pts <- rbind(pts, l.pts) ## combine them
