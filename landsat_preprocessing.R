@@ -23,7 +23,8 @@ setwd('/Users/Avril/Documents/krat_remote_sensing/landsat_5_downloads/')
 dirs <- list.files()
 
 pdf(file='/Users/Avril/Desktop/test_run.pdf', width=6, height=6)
-par(mar=c(3.1,2.1,2.1,1.1), mgp=c(1.5,.75,0))
+# par(mar=c(3.1,2.1,2.1,1.1), mgp=c(1.5,.75,0))
+par(mar=c(5.1,4.1,4.1,2.1))
 
 CHECK.TC <- NULL
 TC.DATA <- NULL
@@ -57,27 +58,29 @@ for(i in dirs){
   ## crop raster data by extent to reduce processing times
   ls5.stack <- crop(ls5.stack, ext)
   
-  # ## calculate cloud mask -- best way to do this? 
-  # cld.msk <- cloudMask(ls5.stack, blue='B1_dn', tir='B6_dn', buffer=NULL, plot=TRUE)
-  # ggR(cld.msk, 2, geom_raster=TRUE)
+  ## calculate cloud mask -- best way to do this? 
+  ## maybe using QA band?
+  raster::plotRGB(ls5.stack, r=3, g=2, b=1, scale=ls5.stack@data@max[1:3])
+  qa.test <- classifyQA(ls5.stack$BQA_dn, type=c('cloud'), sensor='TM', confLayers=TRUE)
+  plot(qa.test)
+  qa.test[qa.test > 1] <- NA
+  msk.ls5.stack <- mask(ls5.stack, mask=qa.test)
+  plotRGB(msk.ls5.stack, r=3, g=2, b=1, scale=msk.ls5.stack@data@max[1:3])
   
   ## apply TOA correction - 'apref' = apparent reflectance (top-of-atmosphere reflectance)
-  ls5.cor.stack <- radCor(ls5.stack, m.data, method='apref', verbose=TRUE, bandSet=m.data$DATA$BANDS)
+  ls5.cor.stack <- radCor(msk.ls5.stack, m.data, method='apref', verbose=TRUE, bandSet=m.data$DATA$BANDS)
   
   ## manually select the Landsat5TM bands you need for Tasseled Cap (1,2,3,4,5,7)
   tc.cor.stack <- raster::subset(ls5.cor.stack, subset=c('B1_tre','B2_tre','B3_tre','B4_tre','B5_tre','B7_tre'))
   ## apply the Tasseled Cap transformation
   ls5.tc.cor <- tasseledCap(tc.cor.stack, sat='Landsat5TM')
-  
+  par(mar=c(5.1,4.1,4.1,2.1))
   plot(ls5.tc.cor$greenness, xlab='UTM westing coordinate (m)', ylab='UTM northing coordinate (m)', bty='n', main=paste0(i,'\ngreenness'))
     points(mnd.locs, pch=19, cex=0.2)
-
   plot(ls5.tc.cor$brightness, xlab='UTM westing coordinate (m)', ylab='UTM northing coordinate (m)', bty='n', main=paste0(i,'\nbrightness'))
     points(mnd.locs, pch=19, cex=0.2)
-
   plot(ls5.tc.cor$wetness, xlab='UTM westing coordinate (m)', ylab='UTM northing coordinate (m)', bty='n', main=paste0(i,'\nwetness'))
     points(mnd.locs, pch=19, cex=0.2)
-  # dev.off()
   
   ## extract TC pixel data for mounds & surrounding pixels
   ## for pixel mound is located in (buffer = ## meters);
@@ -93,13 +96,13 @@ for(i in dirs){
   }
   
   ## plot what this buffer would extract
-  plot(ls5.tc.cor$greenness, xlab='UTM westing coordinate (m)', ylab='UTM northing coordinate (m)', bty='n',
-       xlim=c(lo.x, hi.x), ylim=c(lo.y, hi.y), main='Buffer extracted\n(greenness values)')
-    points(mnd.locs, pch=19, cex=0.2)
-    r2 <- ls5.tc.cor$greenness
-    r2[setdiff(seq_len(ncell(r2)), unique(g.ness[,2]))] <- NA
-    r2[!is.na(r2)] <- 1
-    plot(rasterToPolygons(r2, dissolve=TRUE), add=TRUE, border='red', lwd=2)
+  # plot(ls5.tc.cor$greenness, xlab='UTM westing coordinate (m)', ylab='UTM northing coordinate (m)', bty='n',
+  #      xlim=c(lo.x, hi.x), ylim=c(lo.y, hi.y), main='Buffer extracted\n(greenness values)')
+  #   points(mnd.locs, pch=19, cex=0.2)
+  #   r2 <- ls5.tc.cor$greenness
+  #   r2[setdiff(seq_len(ncell(r2)), unique(g.ness[,2]))] <- NA
+  #   r2[!is.na(r2)] <- 1
+  #   plot(rasterToPolygons(r2, dissolve=TRUE), add=TRUE, border='red', lwd=2)
   ## maybe save data for focal pixels, then figure out which pixels are in the buffer zone, and save values for those,
   ## with key linking cell numbers in buffer zone to corresponding focal pixels?
     
@@ -135,7 +138,7 @@ for(i in dirs){
 }
 dev.off()
 
-head(CHECK.TC)
+table(CHECK.TC[,2])
 head(TC.DATA)
 head(MND.CELLS)
 
