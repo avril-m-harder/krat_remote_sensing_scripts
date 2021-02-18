@@ -149,9 +149,3 @@ table(CHECK.TC[,2])
 head(TC.DATA)
 head(MND.CELLS)
 
-
-
-
-
-
-
