@@ -19,12 +19,14 @@ mnd.locs <- spTransform(mnd.locs, CRS("+proj=utm +zone=12 +ellps=WGS84 +towgs84=
 # ## set wd for test directory - can run as loop over multiple directories later
 # setwd('/Users/Avril/Documents/krat_remote_sensing/landsat_5_downloads/LT05_L1TP_035038_20040611_20160914_01_T1/')
 
-setwd('/Users/Avril/Documents/krat_remote_sensing/landsat_5_downloads/')
+# setwd('/Users/Avril/Documents/krat_remote_sensing/landsat_5_downloads/')
+
+setwd('/Users/Avril/Desktop/.scratch/krats/remote_sensing/ls_downloads/')
 dirs <- list.files()
 
 pdf(file='/Users/Avril/Desktop/test_run.pdf', width=6, height=6)
-# par(mar=c(3.1,2.1,2.1,1.1), mgp=c(1.5,.75,0))
-par(mar=c(5.1,4.1,4.1,2.1))
+par(mar=c(3.1,2.1,2.1,1.1), mgp=c(1.5,.75,0))
+# par(mar=c(5.1,4.1,4.1,2.1))
 
 CHECK.TC <- NULL
 TC.DATA <- NULL
@@ -38,7 +40,8 @@ hi.y <- 3499750
 ext <- extent(lo.x, hi.x, lo.y, hi.y)
 
 for(i in dirs){
-  setwd(paste0('/Users/Avril/Documents/krat_remote_sensing/landsat_5_downloads/',i,'/'))
+  # setwd(paste0('/Users/Avril/Documents/krat_remote_sensing/landsat_5_downloads/',i,'/'))
+  setwd(paste0('/Users/Avril/Desktop/.scratch/krats/remote_sensing/ls_downloads/',i,'/'))
   ## read in data
   all_landsat_bands <- list.files(pattern = glob2rx("*TIF$"), full.names = TRUE)
   if(length(all_landsat_bands) != 0){ ## if files haven't been renamed yet, rename them
@@ -63,9 +66,9 @@ for(i in dirs){
   raster::plotRGB(ls5.stack, r=3, g=2, b=1, scale=ls5.stack@data@max[1:3])
   qa.test <- classifyQA(ls5.stack$BQA_dn, type=c('cloud'), sensor='TM', confLayers=TRUE)
   plot(qa.test)
-  qa.test[qa.test > 1] <- NA
+  qa.test[qa.test > 1] <- NA ## if confLayers==TRUE
   msk.ls5.stack <- mask(ls5.stack, mask=qa.test)
-  plotRGB(msk.ls5.stack, r=3, g=2, b=1, scale=msk.ls5.stack@data@max[1:3])
+  # plotRGB(msk.ls5.stack, r=3, g=2, b=1, scale=msk.ls5.stack@data@max[1:3])
   
   ## apply TOA correction - 'apref' = apparent reflectance (top-of-atmosphere reflectance)
   ls5.cor.stack <- radCor(msk.ls5.stack, m.data, method='apref', verbose=TRUE, bandSet=m.data$DATA$BANDS)
