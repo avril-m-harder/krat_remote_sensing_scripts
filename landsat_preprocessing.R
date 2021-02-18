@@ -20,7 +20,9 @@ mnd.locs <- spTransform(mnd.locs, CRS("+proj=utm +zone=12 +ellps=WGS84 +towgs84=
 # setwd('/Users/Avril/Documents/krat_remote_sensing/landsat_5_downloads/LT05_L1TP_035038_20040611_20160914_01_T1/')
 
 # setwd('/Users/Avril/Documents/krat_remote_sensing/landsat_5_downloads/')
+# dirs <- list.files()
 
+## loop over downloads in scratch space (n=648)
 setwd('/Users/Avril/Desktop/.scratch/krats/remote_sensing/ls_downloads/')
 dirs <- list.files()
 
@@ -63,12 +65,14 @@ for(i in dirs){
   
   ## calculate cloud mask -- best way to do this? 
   ## maybe using QA band?
-  raster::plotRGB(ls5.stack, r=3, g=2, b=1, scale=ls5.stack@data@max[1:3])
+  try(raster::plotRGB(ls5.stack, r=3, g=2, b=1, scale=ls5.stack@data@max[1:3]), silent=TRUE)
+    graphics::text(x=lo.x, y=hi.y, labels=paste0('pre-mask\n',i), col='yellow', adj=c(0,1))
   qa.test <- classifyQA(ls5.stack$BQA_dn, type=c('cloud'), sensor='TM', confLayers=TRUE)
   plot(qa.test)
   qa.test[qa.test > 1] <- NA ## if confLayers==TRUE
   msk.ls5.stack <- mask(ls5.stack, mask=qa.test)
-  # plotRGB(msk.ls5.stack, r=3, g=2, b=1, scale=msk.ls5.stack@data@max[1:3])
+  try(plotRGB(msk.ls5.stack, r=3, g=2, b=1, scale=msk.ls5.stack@data@max[1:3]), silent=TRUE)
+    graphics::text(x=lo.x, y=hi.y, labels=paste0('post-mask\n',i), col='yellow', adj=c(0,1))
   
   ## apply TOA correction - 'apref' = apparent reflectance (top-of-atmosphere reflectance)
   ls5.cor.stack <- radCor(msk.ls5.stack, m.data, method='apref', verbose=TRUE, bandSet=m.data$DATA$BANDS)
