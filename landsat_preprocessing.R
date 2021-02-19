@@ -16,46 +16,54 @@ coordinates(mnd.locs) <- c('long','lat') ## converts to SpatialPointsDataFrame o
 proj4string(mnd.locs) <- CRS("+proj=longlat +datum=WGS84") 
 mnd.locs <- spTransform(mnd.locs, CRS("+proj=utm +zone=12 +ellps=WGS84 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs"))
 
+#
 ##### Loop over directories of raw data and write cropped raster files #####
-### Only need to run this loop once ###
-## loop over downloads in scratch space (n=648) 
-setwd('/Volumes/avril_data/krat_remote_sensing/raw_landsat45tm_scene_downloads/')
-dirs <- list.files()
+# ### Only need to run this loop once ###
+# ## loop over downloads in scratch space (n=648) 
+# setwd('/Volumes/avril_data/krat_remote_sensing/raw_landsat45tm_scene_downloads/')
+# dirs <- list.files()
+# 
+# ## set extent for all analyses
+# lo.x <- 663500
+# hi.x <- 665600
+# lo.y <- 3497000
+# hi.y <- 3499750
+# ext <- extent(lo.x, hi.x, lo.y, hi.y)
+# 
+# for(i in dirs){
+#   setwd(paste0('/Volumes/avril_data/krat_remote_sensing/raw_landsat45tm_scene_downloads/',i,'/'))
+#   ## read in data
+#   all_landsat_bands <- list.files(pattern = glob2rx("*TIF$"), full.names = TRUE)
+#   if(length(all_landsat_bands) != 0){ ## if files haven't been renamed yet, rename them
+#     ## get new filenames and rename TIF files - filenames must == band names in metadata file or radCor() will fail
+#     new.names <- do.call(rbind, strsplit(all_landsat_bands, split='_', fixed=TRUE))[,8]
+#     new.names <- paste0(gsub('.TIF','',new.names),'_dn')
+#     file.rename(all_landsat_bands, new.names)
+#     ls5.stack <- stack(new.names)
+#   } else{ ## otherwise, they've already been renamed and can be read in with this loop
+#     new.names <- list.files(pattern = glob2rx("*_dn$"), full.names = TRUE)
+#     ls5.stack <- stack(new.names)
+#   }
+#   ## read in metadata
+#   md.file <- list.files(pattern=glob2rx("*MTL.txt"), full.names=TRUE)
+#   m.data <- readMeta(md.file) ## works for LS5 Collection 1 Level 1 data - errors with Collection 2 Level 1
+#   
+#   ## crop raster data by extent to reduce processing times and write to file
+#   ls5.stack <- crop(ls5.stack, ext)
+#   
+#   writeRaster(ls5.stack, filename=paste0('/Volumes/avril_data/krat_remote_sensing/cropped_landsat45tm_scenes/',i,'_CROPPED.grd'), progress='text', overwrite=TRUE)
+#   ls5.stack <- brick(paste0('/Volumes/avril_data/krat_remote_sensing/cropped_landsat45tm_scenes/',i,'_CROPPED.grd'))
+#   
+#   print(i)
+# }
 
-## set extent for all analyses
-lo.x <- 663500
-hi.x <- 665600
-lo.y <- 3497000
-hi.y <- 3499750
-ext <- extent(lo.x, hi.x, lo.y, hi.y)
 
-for(i in dirs){
-  setwd(paste0('/Volumes/avril_data/krat_remote_sensing/raw_landsat45tm_scene_downloads/',i,'/'))
-  ## read in data
-  all_landsat_bands <- list.files(pattern = glob2rx("*TIF$"), full.names = TRUE)
-  if(length(all_landsat_bands) != 0){ ## if files haven't been renamed yet, rename them
-    ## get new filenames and rename TIF files - filenames must == band names in metadata file or radCor() will fail
-    new.names <- do.call(rbind, strsplit(all_landsat_bands, split='_', fixed=TRUE))[,8]
-    new.names <- paste0(gsub('.TIF','',new.names),'_dn')
-    file.rename(all_landsat_bands, new.names)
-    ls5.stack <- stack(new.names)
-  } else{ ## otherwise, they've already been renamed and can be read in with this loop
-    new.names <- list.files(pattern = glob2rx("*_dn$"), full.names = TRUE)
-    ls5.stack <- stack(new.names)
-  }
-  ## read in metadata
-  md.file <- list.files(pattern=glob2rx("*MTL.txt"), full.names=TRUE)
-  m.data <- readMeta(md.file) ## works for LS5 Collection 1 Level 1 data - errors with Collection 2 Level 1
-  
-  ## crop raster data by extent to reduce processing times and write to file
-  ls5.stack <- crop(ls5.stack, ext)
-  
-  writeRaster(ls5.stack, filename=paste0('/Volumes/avril_data/krat_remote_sensing/cropped_landsat45tm_scenes/',i,'_CROPPED.grd'), progress='text', overwrite=TRUE)
-  ls5.stack <- brick(paste0('/Volumes/avril_data/krat_remote_sensing/cropped_landsat45tm_scenes/',i,'_CROPPED.grd'))
-}
+##### loop over cropped scenes, process, and write TC output #####
+### Initial test run of this loop = 5 minutes ###
+## set file names for run
+tc.fn <- 'tc_initial_test' ## for TC data
+mc.fn <- 'mnd_key_initial_test' ## for mound/cell ID key
 
-
-##### loop over cropped scenes, read in, process, and write TC output #####
 setwd('/Volumes/avril_data/krat_remote_sensing/cropped_landsat45tm_scenes/')
 files <- list.files(pattern="*.grd")
 
@@ -64,8 +72,8 @@ par(mar=c(3.1,2.1,2.1,1.1), mgp=c(1.5,.75,0))
 
 CHECK.TC <- NULL
 
-for(i in files){
-  ls5.stack <- brick(i)
+for(i in 1:length(files)){
+  ls5.stack <- brick(files[i])
   ## calculate cloud mask -- best way to do this? 
   ## maybe using QA band?
   try(raster::plotRGB(ls5.stack, r=3, g=2, b=1, scale=ls5.stack@data@max[1:3]), silent=TRUE)
@@ -132,8 +140,8 @@ for(i in files){
   all.tc$ncols <- ls5.tc.cor$brightness@ncols
 
   ## -- write to a file continuously to free up memory
-  write.table(all.tc, '../../tc_output_tables/tasseled_cap_data.csv', quote=FALSE, append=TRUE, 
-              row.names=FALSE, sep=',', col.names=!file.exists("../../tc_output_tables/tasseled_cap_data.csv"))
+  write.table(all.tc, file=paste0('../tc_output_tables/',tc.fn,'.csv'), quote=FALSE, append=TRUE, 
+              row.names=FALSE, sep=',', col.names=!file.exists(paste0('../tc_output_tables/',tc.fn,'.csv')))
 
   ## get cell number for each mound and save scene information
   mnd.cell.dat <- cbind(mnd.cells, (cellFromXY(ls5.tc.cor, mnd.locs)))
@@ -145,10 +153,10 @@ for(i in files){
   mnd.cell.dat$row <- row
 
   ## -- write to a file continuously to free up memory
-  write.table(mnd.cell.dat, '../../tc_output_tables/mound_cell_key.csv', quote=FALSE, append=TRUE, 
-              row.names=FALSE, sep=',', col.names=!file.exists("../../tc_output_tables/mound_cell_key.csv"))
+  write.table(mnd.cell.dat, paste0('../tc_output_tables/',mc.fn,'.csv'), quote=FALSE, append=TRUE, 
+              row.names=FALSE, sep=',', col.names=!file.exists(paste0('../tc_output_tables/',mc.fn,'.csv')))
   
-  print(i)
+  print(i/length(files))
 }
 dev.off()
 
