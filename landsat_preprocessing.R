@@ -123,7 +123,14 @@ for(i in 1:length(files)){
   #   plot(rasterToPolygons(r2, dissolve=TRUE), add=TRUE, border='red', lwd=2)
   ## maybe save data for focal pixels, then figure out which pixels are in the buffer zone, and save values for those,
   ## with key linking cell numbers in buffer zone to corresponding focal pixels?
-    
+  
+  ## read in metadata for original scene
+  d <- gsub('_CROPPED.grd', '', files[i])
+  setwd(paste0('/Volumes/avril_data/krat_remote_sensing/raw_landsat45tm_scene_downloads/',d,'/'))
+  md.file <- list.files(pattern=glob2rx('*MTL.txt'), full.names=TRUE)
+  m.data <- readMeta(md.file) ## works for LS5 Collection 1 Level 1 data - errors with Collection 2 Level 1
+  setwd('/Volumes/avril_data/krat_remote_sensing/cropped_landsat45tm_scenes/')
+  
   ## define data to be saved and format for writing output
   acq.date <- m.data$ACQUISITION_DATE
   path <- m.data$PATH_ROW[1]
@@ -162,4 +169,29 @@ dev.off()
 
 table(CHECK.TC[,2])
 
+##### Do some data viz for current run #####
+setwd('/Volumes/avril_data/krat_remote_sensing/tc_output_tables/')
 
+tc.dat <- read.csv(paste0(tc.fn,'.csv'))
+mc.key <- read.csv(paste0(mc.fn,'.csv'))
+
+## for a single cell, plot trends in TC metrics over year
+temp <- tc.dat[which(tc.dat$cells == unique(tc.dat$cells)[1]),]
+temp$year <- as.numeric(do.call(rbind, strsplit(as.character(temp$acq.date), split='-', fixed=TRUE))[,1])
+plot(temp$doy, temp$greenness, pch=19, col=temp$year, cex=0.8)
+plot(temp$doy, temp$wetness, pch=19, col=temp$year, cex=0.8)
+plot(temp$doy, temp$brightness, pch=19, col=temp$year, cex=0.8)
+## compare with another cell
+temp1 <- tc.dat[which(tc.dat$cells == unique(tc.dat$cell)[300]),]
+temp1$year <- as.numeric(do.call(rbind, strsplit(as.character(temp1$acq.date), split='-', fixed=TRUE))[,1])
+plot(temp1$doy, temp1$greenness, pch=19, col=temp$year, cex=0.8)
+plot(temp1$doy, temp1$wetness, pch=19, col=temp$year, cex=0.8)
+plot(temp1$doy, temp1$brightness, pch=19, col=temp$year, cex=0.8)
+
+par(mfrow=c(1,2))
+plot(temp$doy, temp$greenness, pch=19, col=temp$year, cex=0.8)
+plot(temp1$doy, temp1$greenness, pch=19, col=temp$year, cex=0.8)
+plot(temp$doy, temp$wetness, pch=19, col=temp$year, cex=0.8)
+plot(temp1$doy, temp1$wetness, pch=19, col=temp$year, cex=0.8)
+plot(temp$doy, temp$brightness, pch=19, col=temp$year, cex=0.8)
+plot(temp1$doy, temp1$brightness, pch=19, col=temp$year, cex=0.8)
