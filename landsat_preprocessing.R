@@ -6,6 +6,7 @@ library(RStoolbox)
 library(viridis)
 library(ggplot2)
 library(scales)
+library(rgdal)
 
 ##### Read in mound waypoints for later extraction #####
 mnd.locs <- read.csv('/Users/Avril/Documents/krat_remote_sensing/intermediate_data/mound_GPS_coords_n188.csv')
@@ -15,24 +16,11 @@ coordinates(mnd.locs) <- c('long','lat') ## converts to SpatialPointsDataFrame o
 proj4string(mnd.locs) <- CRS("+proj=longlat +datum=WGS84") 
 mnd.locs <- spTransform(mnd.locs, CRS("+proj=utm +zone=12 +ellps=WGS84 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs"))
 
-##### Loop over directories, processing scenes and saving TC data #####
-# ## set wd for test directory - can run as loop over multiple directories later
-# setwd('/Users/Avril/Documents/krat_remote_sensing/landsat_5_downloads/LT05_L1TP_035038_20040611_20160914_01_T1/')
-
-# setwd('/Users/Avril/Documents/krat_remote_sensing/landsat_5_downloads/')
-# dirs <- list.files()
-
-## loop over downloads in scratch space (n=648)
-setwd('/Users/Avril/Desktop/.scratch/krats/remote_sensing/ls_downloads/')
+##### Loop over directories of raw data and write cropped raster files #####
+### Only need to run this loop once ###
+## loop over downloads in scratch space (n=648) 
+setwd('/Volumes/avril_data/krat_remote_sensing/raw_landsat45tm_scene_downloads/')
 dirs <- list.files()
-
-pdf(file='/Users/Avril/Desktop/test_run.pdf', width=6, height=6)
-par(mar=c(3.1,2.1,2.1,1.1), mgp=c(1.5,.75,0))
-# par(mar=c(5.1,4.1,4.1,2.1))
-
-CHECK.TC <- NULL
-TC.DATA <- NULL
-MND.CELLS <- NULL
 
 ## set extent for all analyses
 lo.x <- 663500
@@ -42,8 +30,7 @@ hi.y <- 3499750
 ext <- extent(lo.x, hi.x, lo.y, hi.y)
 
 for(i in dirs){
-  # setwd(paste0('/Users/Avril/Documents/krat_remote_sensing/landsat_5_downloads/',i,'/'))
-  setwd(paste0('/Users/Avril/Desktop/.scratch/krats/remote_sensing/ls_downloads/',i,'/'))
+  setwd(paste0('/Volumes/avril_data/krat_remote_sensing/raw_landsat45tm_scene_downloads/',i,'/'))
   ## read in data
   all_landsat_bands <- list.files(pattern = glob2rx("*TIF$"), full.names = TRUE)
   if(length(all_landsat_bands) != 0){ ## if files haven't been renamed yet, rename them
@@ -60,9 +47,25 @@ for(i in dirs){
   md.file <- list.files(pattern=glob2rx("*MTL.txt"), full.names=TRUE)
   m.data <- readMeta(md.file) ## works for LS5 Collection 1 Level 1 data - errors with Collection 2 Level 1
   
-  ## crop raster data by extent to reduce processing times
+  ## crop raster data by extent to reduce processing times and write to file
   ls5.stack <- crop(ls5.stack, ext)
   
+  writeRaster(ls5.stack, filename=paste0('/Volumes/avril_data/krat_remote_sensing/cropped_landsat45tm_scenes/',i,'_CROPPED.grd'), progress='text', overwrite=TRUE)
+  ls5.stack <- brick(paste0('/Volumes/avril_data/krat_remote_sensing/cropped_landsat45tm_scenes/',i,'_CROPPED.grd'))
+}
+
+
+##### loop over cropped scenes, read in, process, and write TC output #####
+setwd('/Volumes/avril_data/krat_remote_sensing/cropped_landsat45tm_scenes/')
+files <- list.files(pattern="*.grd")
+
+pdf(file='/Users/Avril/Desktop/test_run.pdf', width=6, height=6)
+par(mar=c(3.1,2.1,2.1,1.1), mgp=c(1.5,.75,0))
+
+CHECK.TC <- NULL
+
+for(i in files){
+  ls5.stack <- brick(i)
   ## calculate cloud mask -- best way to do this? 
   ## maybe using QA band?
   try(raster::plotRGB(ls5.stack, r=3, g=2, b=1, scale=ls5.stack@data@max[1:3]), silent=TRUE)
@@ -127,8 +130,10 @@ for(i in dirs){
   all.tc$row <- row
   all.tc$nrows <- ls5.tc.cor$brightness@nrows
   all.tc$ncols <- ls5.tc.cor$brightness@ncols
-  ## save all focal + buffer cell TC values
-  TC.DATA <- rbind(TC.DATA, all.tc)
+
+  ## -- write to a file continuously to free up memory
+  write.table(all.tc, '../../tc_output_tables/tasseled_cap_data.csv', quote=FALSE, append=TRUE, 
+              row.names=FALSE, sep=',', col.names=!file.exists("../../tc_output_tables/tasseled_cap_data.csv"))
 
   ## get cell number for each mound and save scene information
   mnd.cell.dat <- cbind(mnd.cells, (cellFromXY(ls5.tc.cor, mnd.locs)))
@@ -138,14 +143,15 @@ for(i in dirs){
   mnd.cell.dat$scene.id <- scene.id
   mnd.cell.dat$path <- path
   mnd.cell.dat$row <- row
-  ## save mound/cell ID information
-  MND.CELLS <- rbind(MND.CELLS, mnd.cell.dat)
+
+  ## -- write to a file continuously to free up memory
+  write.table(mnd.cell.dat, '../../tc_output_tables/mound_cell_key.csv', quote=FALSE, append=TRUE, 
+              row.names=FALSE, sep=',', col.names=!file.exists("../../tc_output_tables/mound_cell_key.csv"))
   
   print(i)
 }
 dev.off()
 
 table(CHECK.TC[,2])
-head(TC.DATA)
-head(MND.CELLS)
+
 
