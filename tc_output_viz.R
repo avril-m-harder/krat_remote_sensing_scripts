@@ -14,8 +14,8 @@ tc.dat <- read.csv(paste0(tc.fn,'.csv'))
 mc.key <- read.csv(paste0(mc.fn,'.csv'))
 
 ## limit tc.dat/mc.key by scene cloud %
-low.cloud <- read.table('/Users/Avril/Desktop/low_cloud_scenes.txt', sep='\t')
-cloud.free <- read.table('/Users/Avril/Desktop/cloud_free_scenes.txt', sep='\t')
+low.cloud <- read.table('/Users/Avril/Documents/krat_remote_sensing/landsat_5_data_overviews/low_cloud_scenes.txt', sep='\t')
+cloud.free <- read.table('/Users/Avril/Documents/krat_remote_sensing/landsat_5_data_overviews/cloud_free_scenes.txt', sep='\t')
 
 tc.dat <- tc.dat[which(tc.dat$scene.id %in% low.cloud$V1),]
 mc.key <- mc.key[which(mc.key$scene.id %in% low.cloud$V1),]
