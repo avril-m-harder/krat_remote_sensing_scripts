@@ -4,6 +4,7 @@ library(viridis)
 library(ggplot2)
 library(scales)
 library(rgdal)
+`%notin%` <- Negate(`%in%`)
 setwd('/Users/Avril/Documents/krat_remote_sensing/tc_output_tables/')
 
 tc.fn <- 'tc_initial_test' ## for TC data
@@ -12,26 +13,33 @@ mc.fn <- 'mnd_key_initial_test' ## for mound/cell ID key
 tc.dat <- read.csv(paste0(tc.fn,'.csv'))
 mc.key <- read.csv(paste0(mc.fn,'.csv'))
 
-## for a single cell, plot trends in TC metrics over year
-temp <- tc.dat[which(tc.dat$cells == unique(tc.dat$cells)[1]),]
-temp$year <- as.numeric(do.call(rbind, strsplit(as.character(temp$acq.date), split='-', fixed=TRUE))[,1])
-plot(temp$doy, temp$greenness, pch=19, col=temp$year, cex=0.8)
-plot(temp$doy, temp$wetness, pch=19, col=temp$year, cex=0.8)
-plot(temp$doy, temp$brightness, pch=19, col=temp$year, cex=0.8)
-## compare with another cell
-temp1 <- tc.dat[which(tc.dat$cells == unique(tc.dat$cell)[300]),]
-temp1$year <- as.numeric(do.call(rbind, strsplit(as.character(temp1$acq.date), split='-', fixed=TRUE))[,1])
-plot(temp1$doy, temp1$greenness, pch=19, col=temp$year, cex=0.8)
-plot(temp1$doy, temp1$wetness, pch=19, col=temp$year, cex=0.8)
-plot(temp1$doy, temp1$brightness, pch=19, col=temp$year, cex=0.8)
+## limit tc.dat/mc.key by scene cloud %
+low.cloud <- read.table('/Users/Avril/Desktop/low_cloud_scenes.txt', sep='\t')
+cloud.free <- read.table('/Users/Avril/Desktop/cloud_free_scenes.txt', sep='\t')
 
-par(mfrow=c(1,2))
-plot(temp$doy, temp$greenness, pch=19, col=temp$year, cex=0.8)
-plot(temp1$doy, temp1$greenness, pch=19, col=temp$year, cex=0.8)
-plot(temp$doy, temp$wetness, pch=19, col=temp$year, cex=0.8)
-plot(temp1$doy, temp1$wetness, pch=19, col=temp$year, cex=0.8)
-plot(temp$doy, temp$brightness, pch=19, col=temp$year, cex=0.8)
-plot(temp1$doy, temp1$brightness, pch=19, col=temp$year, cex=0.8)
+tc.dat <- tc.dat[which(tc.dat$scene.id %in% low.cloud$V1),]
+mc.key <- mc.key[which(mc.key$scene.id %in% low.cloud$V1),]
+
+# ## for a single cell, plot trends in TC metrics over year
+# temp <- tc.dat[which(tc.dat$cells == unique(tc.dat$cells)[1]),]
+# temp$year <- as.numeric(do.call(rbind, strsplit(as.character(temp$acq.date), split='-', fixed=TRUE))[,1])
+# plot(temp$doy, temp$greenness, pch=19, col=temp$year, cex=0.8)
+# plot(temp$doy, temp$wetness, pch=19, col=temp$year, cex=0.8)
+# plot(temp$doy, temp$brightness, pch=19, col=temp$year, cex=0.8)
+# ## compare with another cell
+# temp1 <- tc.dat[which(tc.dat$cells == unique(tc.dat$cell)[300]),]
+# temp1$year <- as.numeric(do.call(rbind, strsplit(as.character(temp1$acq.date), split='-', fixed=TRUE))[,1])
+# plot(temp1$doy, temp1$greenness, pch=19, col=temp$year, cex=0.8)
+# plot(temp1$doy, temp1$wetness, pch=19, col=temp$year, cex=0.8)
+# plot(temp1$doy, temp1$brightness, pch=19, col=temp$year, cex=0.8)
+# 
+# par(mfrow=c(1,2))
+# plot(temp$doy, temp$greenness, pch=19, col=temp$year, cex=0.8)
+# plot(temp1$doy, temp1$greenness, pch=19, col=temp$year, cex=0.8)
+# plot(temp$doy, temp$wetness, pch=19, col=temp$year, cex=0.8)
+# plot(temp1$doy, temp1$wetness, pch=19, col=temp$year, cex=0.8)
+# plot(temp$doy, temp$brightness, pch=19, col=temp$year, cex=0.8)
+# plot(temp1$doy, temp1$brightness, pch=19, col=temp$year, cex=0.8)
 
 ## plot mean values across extent for each scene/timepoint
 mean.dat <- tc.dat[,-1] ## get rid of ID, because there are repeat cell values across mound IDs
@@ -47,11 +55,144 @@ for(i in unique(mean.dat$scene.id)){
 out <- as.data.frame(OUT)
 colnames(out) <- c('greenness','wetness','brightness','doy','year','path')
 plot(out$doy, out$brightness, col=out$year, pch=19, cex=0.8)
+plot(out$doy, out$greenness, col=out$year, pch=19, cex=0.8)
+plot(out$doy, out$wetness, col=out$year, pch=19, cex=0.8)
 ## plot years separately
 pdf('/Users/Avril/Desktop/test.pdf', height=18, width=9)
 par(mfrow=c(9,2))
 for(i in unique(out$year)){
   sub <- out[which(out$year == i),]
   plot(sub$doy, sub$wetness, col=sub$path, pch=19, cex=1, main=i)
+}
+dev.off()
+
+##### GIF attempt #####
+## read in background image
+bg <- raster('/Users/Avril/Documents/krat_remote_sensing/site_hi_res_orthoimagery/cropped_highresortho.grd')
+plot(bg, col=gray(0:100 / 100))
+## read in TC data
+plot.dat <- tc.dat[,-1] ## get rid of ID, because there are repeat cell values across mound IDs
+plot.dat <- plot.dat[!duplicated(plot.dat),] ## get rid of duplicated rows (2,600,424 rows --> 383,616 rows)
+plot.dat$year <- as.numeric(do.call(rbind, strsplit(as.character(plot.dat$acq.date), split='-', fixed=TRUE))[,1])
+plot.dat$dec <- plot.dat$year+(plot.dat$doy/365)
+
+## set up year data and time portion of plot
+days <- plot.dat[,c('year','doy','dec','scene.id')]
+days <- days[!duplicated(days),]
+days$yval <- 1
+days <- days[order(days$dec),]
+pdf('/Users/Avril/Desktop/date_test.pdf', width=5, height=1)
+par(mar=c(2.1,0,0,0))
+for(i in 1:nrow(days)){
+plot(days$dec[i], days$yval[i], ylim=c(0,1.25), ylab='', xlab='', bty='n', yaxt='n', pch=19, cex=3,
+     xlim=c(1989,2005), xaxt='n')
+  axis(1, at=c(1989,2005), labels=TRUE)
+  lines(x=c(days$dec[i], days$dec[i]), y=c(-0.1, 1), lwd=6)
+}
+dev.off()
+
+## set up TC portion of plot
+## set tighter extent
+lo.x <- 663500+350
+hi.x <- 665600-400
+lo.y <- 3497000+800
+hi.y <- 3499750-400
+ext <- extent(lo.x, hi.x, lo.y, hi.y)
+
+## read in mound data
+mnd.locs <- read.csv('/Users/Avril/Documents/krat_remote_sensing/intermediate_data/mound_GPS_coords_n188.csv')
+mnd.locs$ID <- 1:nrow(mnd.locs) ## add column for later matching up with TC extracted pixel values
+mnd.cells <- mnd.locs[,c(4,5)] ## save ID and db.name for saving cell names later
+coordinates(mnd.locs) <- c('long','lat') ## converts to SpatialPointsDataFrame object for plotting
+proj4string(mnd.locs) <- CRS("+proj=longlat +datum=WGS84") 
+mnd.locs <- spTransform(mnd.locs, CRS("+proj=utm +zone=12 +ellps=WGS84 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs"))
+
+## read in 1 cropped scene to get background image
+ls5.stack <- brick('/Volumes/avril_data/krat_remote_sensing/cropped_landsat45tm_scenes/LT05_L1TP_035038_20051121_20160911_01_T1_CROPPED.grd')
+raster::plotRGB(ls5.stack, r=3, g=2, b=1, scale=ls5.stack@data@max[1:3], margins=FALSE)
+
+## make buffer outline
+plot(ls5.stack$B1_dn, xlab='UTM westing coordinate (m)', ylab='UTM northing coordinate (m)', bty='n',
+     xlim=c(lo.x, hi.x), ylim=c(lo.y, hi.y), main='Buffer extracted\n(greenness values)')
+  points(mnd.locs, pch=19, cex=0.2)
+  g.ness <- extract(ls5.stack$B1_dn, mnd.locs, method='simple', df=TRUE, cellnumbers=TRUE, buffer=78)
+  r2 <- ls5.stack$B1_dn
+  r2[setdiff(seq_len(ncell(r2)), unique(g.ness[,2]))] <- NA
+  r2[!is.na(r2)] <- 1
+  plot(rasterToPolygons(r2, dissolve=TRUE), add=TRUE, border='black', lwd=2)
+
+## final test plot
+sub <- plot.dat[which(plot.dat$scene.id==unique(plot.dat$scene.id)[1]),]
+pic <- unique(sub$cells) ## get list of cell nums to visualize
+all.cells <- seq(from=1, to=ncell(ls5.stack$B1_dn)) ## get list of all cell nums in image
+no.pic <- all.cells[all.cells %notin% pic] ## get list of cell IDs to not visualize
+
+## set color values
+pal <- viridis ## other options: viridis  magma   plasma  inferno  cividis
+w.cuts <- seq(from=min(plot.dat$wetness, na.rm=TRUE), to=max(plot.dat$wetness, na.rm=TRUE), length.out=100)
+b.cuts <- seq(from=min(plot.dat$brightness, na.rm=TRUE), to=max(plot.dat$brightness, na.rm=TRUE), length.out=100)
+g.cuts <- seq(from=min(plot.dat$greenness, na.rm=TRUE), to=max(plot.dat$greenness, na.rm=TRUE), length.out=100)
+
+## set all cells that will never have values to NA
+temp <- ls5.stack$B1_dn
+for(j in no.pic){
+  temp[j] <- NA
+}
+
+##### scale colors within years #####
+### plotting greenness
+pdf('/Users/Avril/Desktop/greenness_test.pdf', width=6, height=8)
+for(j in unique(plot.dat$scene.id)){
+  sub <- plot.dat[which(plot.dat$scene.id==j),]
+  vals <- plot.dat[which(plot.dat$year == sub$year[1]), 'greenness']
+  ## set color breaks for year-specific values
+  g.cuts <- seq(from=min(vals, na.rm=TRUE), to=max(vals, na.rm=TRUE), length.out=100)
+  for(i in 1:nrow(sub)){
+    temp[sub$cells[i]] <- sub$greenness[i] 
+  }
+  raster::plotRGB(ls5.stack, r=3, g=2, b=1, scale=ls5.stack@data@max[1:3], margins=FALSE, ext=ext)
+  plot(temp, add=TRUE, legend=FALSE, col=pal(length(g.cuts)), breaks=g.cuts)
+  # plot(rasterToPolygons(r2, dissolve=TRUE), add=TRUE, border='black', lwd=2) ## buffer outline
+  # points(mnd.locs, pch=19, cex=0.2)
+  print(j)
+}
+dev.off()
+
+##### set up image formatting and put 2 plots together #####
+## set up year data 
+days <- plot.dat[,c('year','doy','dec','scene.id')]
+days <- days[!duplicated(days),]
+days$yval <- 1
+days <- days[order(days$dec),]
+## set up TC data 
+
+pdf('/Users/Avril/Desktop/comb_test.pdf', width=(10/2), height=(11.5/2))
+
+# layout.show(nf)
+for(i in 1:nrow(days)){
+  layout(matrix(c(1,2), nrow=2,ncol=1), widths=c(8.5,8.5), heights=c(2.5,8.5), respect=TRUE)
+  par(mar=c(2.1,0,1.1,0))
+  scene <- days$scene.id[i] ## save scene ID
+  sub <- plot.dat[which(plot.dat$scene.id==scene),]
+  if(nrow(sub) == nrow(sub[complete.cases(sub),])){
+    print('TRUE')
+    ## plot date info
+    plot(days$dec[i], days$yval[i], ylim=c(0,1.25), ylab='', xlab='', bty='n', yaxt='n', pch=19, cex=3,
+         xlim=c(1989,2005), xaxt='n')
+    axis(1, at=c(1989,2005), labels=TRUE)
+    lines(x=c(days$dec[i], days$dec[i]), y=c(-0.1, 1), lwd=6)
+    
+    ## plot TC info
+    vals <- plot.dat[which(plot.dat$year == sub$year[1]), 'greenness']
+    ## set color breaks for year-specific values
+    g.cuts <- seq(from=min(vals, na.rm=TRUE), to=max(vals, na.rm=TRUE), length.out=100)
+    for(i in 1:nrow(sub)){
+      temp[sub$cells[i]] <- sub$greenness[i] 
+    }
+    raster::plotRGB(ls5.stack, r=3, g=2, b=1, scale=ls5.stack@data@max[1:3], margins=FALSE, ext=ext, alpha=0)
+      raster::plot(bg$layer, col=gray(0:100 / 100), yaxt='n', xaxt='n', legend=FALSE, ext=ext, add=TRUE)
+      plot(temp, add=TRUE, legend=FALSE, col=pal(length(g.cuts)), breaks=g.cuts)
+  }
+  print(j)
 }
 dev.off()

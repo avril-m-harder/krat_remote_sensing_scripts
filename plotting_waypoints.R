@@ -230,7 +230,7 @@ plot(c(0, mnd.locs$long), c(0, mnd.locs$lat), pch=19, cex=0.5, col='blue', main=
 #
 # ##### 3D. Plot calculated locations on high-res image background #####
 # ## try importing high-res orthoimagery files
-# setwd('/Users/Avril/Desktop/remote_sensing_data/hi_res_orthoimagery/')
+# setwd('/Users/Avril/Documents/krat_remote_sensing/site_hi_res_orthoimagery/')
 # all_oi_files <- list.files(pattern = glob2rx("*tif$"),
 #                                 full.names = TRUE)
 # 
@@ -249,10 +249,10 @@ plot(c(0, mnd.locs$long), c(0, mnd.locs$lat), pch=19, cex=0.5, col='blue', main=
 # 
 # # pdf('/Users/Avril/Desktop/hires_calc_mound_locations.pdf', width=10, height=10)
 # plot(full, col=gray(0:100 / 100), ext=ext)
-#   ## add calculated GPS locations for all mounds (yellow) and reference point (green)
+#   # add calculated GPS locations for all mounds (yellow) and reference point (green)
 #   points(mnd.locs.plot, pch=19, cex=0.5, col='yellow')
 #   points(ref.plot, pch=13, cex=3, col='lightgreen')
-# # dev.off()
+# dev.off()
 # 
 # ##### 3E. Compare locations of mounds plotting using GPS coordinates for mounds to locations backcalculated using distance to reference point in database #####
 # head(gps.locs) ## GPS-marked waypoint coords for mound locations

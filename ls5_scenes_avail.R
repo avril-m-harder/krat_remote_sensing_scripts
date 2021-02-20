@@ -34,6 +34,13 @@ scenes.avail$doy <- as.numeric(strftime(scenes.avail$Acquisition.Date, format='%
 cloud.col <- 1-(scenes.avail$Scene.Cloud.Cover/100)
 cloud.col[which(cloud.col==0)] <- 0.01
 
+## write list of scenes with cloud cover <20%
+write.table(scenes.avail[which(scenes.avail$Land.Cloud.Cover <= 20),2], quote=FALSE,
+            '/Users/Avril/Desktop/low_cloud_scenes.txt', sep='\t', row.names=FALSE, col.names=FALSE)
+## write list of cloud-free scenes
+write.table(scenes.avail[which(scenes.avail$Land.Cloud.Cover == 0),2], quote=FALSE,
+            '/Users/Avril/Desktop/cloud_free_scenes.txt', sep='\t', row.names=FALSE, col.names=FALSE)
+
 # ## large plots (20 x 7)
 # ## all scenes
 # pdf('/Users/Avril/Desktop/landsat5_data_across_years.pdf', width=20, height=7)
