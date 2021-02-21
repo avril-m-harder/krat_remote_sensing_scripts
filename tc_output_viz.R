@@ -189,9 +189,9 @@ for(i in 1:nrow(days)){
     for(i in 1:nrow(sub)){
       temp[sub$cells[i]] <- sub$greenness[i] 
     }
-    raster::plotRGB(ls5.stack, r=3, g=2, b=1, scale=ls5.stack@data@max[1:3], margins=FALSE, ext=ext, alpha=0)
-      raster::plot(bg$layer, col=gray(0:100 / 100), yaxt='n', xaxt='n', legend=FALSE, ext=ext, add=TRUE)
-      plot(temp, add=TRUE, legend=FALSE, col=pal(length(g.cuts)), breaks=g.cuts)
+    raster::plotRGB(ls5.stack, r=3, g=2, b=1, scale=ls5.stack@data@max[1:3], margins=FALSE, ext=ext, alpha=1)
+      # raster::plot(bg$layer, col=gray(0:100 / 100), yaxt='n', xaxt='n', legend=FALSE, ext=ext, add=TRUE)
+      plot(temp, add=TRUE, legend=FALSE, col=pal(length(g.cuts)), breaks=g.cuts, ext=ext)
   }
   print(j)
 }
