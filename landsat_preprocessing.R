@@ -6,6 +6,7 @@ library(RStoolbox)
 library(viridis)
 library(ggplot2)
 library(scales)
+options("rgdal_show_exportToProj4_warnings"="none")
 library(rgdal)
 
 ##### Read in mound waypoints for later extraction #####
@@ -14,7 +15,7 @@ mnd.locs$ID <- 1:nrow(mnd.locs) ## add column for later matching up with TC extr
 mnd.cells <- mnd.locs[,c(4,5)] ## save ID and db.name for saving cell names later
 coordinates(mnd.locs) <- c('long','lat') ## converts to SpatialPointsDataFrame object for plotting
 proj4string(mnd.locs) <- CRS("+proj=longlat +datum=WGS84") 
-mnd.locs <- spTransform(mnd.locs, CRS("+proj=utm +zone=12 +ellps=WGS84 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs"))
+mnd.locs <- sp::spTransform(mnd.locs, CRS("+proj=utm +zone=12 +ellps=WGS84 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs"))
 
 #
 ##### Loop over directories of raw data and write cropped raster files #####
@@ -83,26 +84,29 @@ for(i in 1:length(files)){
   ls5.stack <- brick(files[i])
   ## calculate cloud mask -- best way to do this? 
   ## maybe using QA band?
-  try(raster::plotRGB(ls5.stack, r=3, g=2, b=1, scale=ls5.stack@data@max[1:3]), silent=TRUE)
-    graphics::text(x=lo.x, y=hi.y, labels=paste0('pre-mask\n',files[i]), col='yellow', adj=c(0,1))
+  # try(raster::plotRGB(ls5.stack, r=3, g=2, b=1, scale=ls5.stack@data@max[1:3]), silent=TRUE)
+    # graphics::text(x=lo.x, y=hi.y, labels=paste0('pre-mask\n',files[i]), col='yellow', adj=c(0,1))
   qa.test <- classifyQA(ls5.stack$BQA_dn, type=c('cloud'), sensor='TM', confLayers=TRUE) ## create cloud mask with classifyQA
   plot(qa.test) ## plot cloud mask
+    graphics::text(x=lo.x, y=hi.y, labels=files[i], col='black', adj=c(0,1))
   qa.test[qa.test > 1] <- NA ## if confLayers==TRUE
   msk.ls5.stack <- mask(ls5.stack, mask=qa.test) ## apply mask to scene
-  try(plotRGB(msk.ls5.stack, r=3, g=2, b=1, scale=msk.ls5.stack@data@max[1:3]), silent=TRUE)
-    graphics::text(x=lo.x, y=hi.y, labels=paste0('post-mask\n',files[i]), col='yellow', adj=c(0,1))
+  # try(plotRGB(msk.ls5.stack, r=3, g=2, b=1, scale=msk.ls5.stack@data@max[1:3]), silent=TRUE)
+  #   graphics::text(x=lo.x, y=hi.y, labels=paste0('post-mask\n',files[i]), col='yellow', adj=c(0,1))
   qa.freq <- freq(qa.test, value=NA) ## number of cells ID'ed w/ cloud cover
   
   ## compare QA band approach to cloudMask approach using blue and thermal bands
   cm.test <- cloudMask(ls5.stack, threshold=0.25, blue='B1_dn', tir='B6_dn', buffer=1)
   plot(cm.test)
+    graphics::text(x=lo.x, y=hi.y, labels=files[i], col='black', adj=c(0,1))
   cm.freq <- freq(cm.test$CMASK, value=1) ## number of cells ID'ed w/ cloud cover
   
   ## # of cells in extent
   n.cells <- dim(ls5.stack)[1]*dim(ls5.stack)[2]
   
   ## proportion masked with different methods
-  save <- c(qa.freq/n.cells, cm.freq/n.cells)
+  scene <- gsub('_CROPPED.grd', '', files[i])
+  save <- c(scene, qa.freq/n.cells, cm.freq/n.cells)
   OUT <- rbind(OUT, save)
   
   
@@ -189,6 +193,21 @@ for(i in 1:length(files)){
 dev.off()
 
 table(CHECK.TC[,2])
+
+##### Exploring cloud masking output #####
+res <- as.data.frame(OUT)
+colnames(res) <- c('Landsat.Product.Identifier','qa.res','cm.res')
+res$qa.res <- as.numeric(paste(res$qa.res))
+res$cm.res <- as.numeric(paste(res$cm.res))
+## merge with scene-level cloud cover info
+scenes.avail <- read.csv('/Users/Avril/Documents/krat_remote_sensing/landsat_5_data_overviews/LS5_C1L1_1989_to_2005.csv')
+scenes.avail <- scenes.avail[,c('Landsat.Product.Identifier','Scene.Cloud.Cover')]
+res <- merge(x=res, y=scenes.avail, by='Landsat.Product.Identifier')
+## compare results
+plot(res$Scene.Cloud.Cover, res$qa.res, pch=19, cex=0.8, col=alpha('blue', 0.8))
+  abline(lm(res$qa.res~res$Scene.Cloud.Cover))
+plot(res$Scene.Cloud.Cover, res$cm.res, pch=19, cex=0.8, col=alpha('blue', 0.8))
+  abline(lm(res$cm.res~res$Scene.Cloud.Cover))
 
 ##### Do some data viz for current run #####
 setwd('/Volumes/avril_data/krat_remote_sensing/tc_output_tables/')
