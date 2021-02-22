@@ -77,38 +77,37 @@ files <- list.files(pattern="*.grd")
 pdf(file='/Users/Avril/Desktop/cloud_mask_test.pdf', width=6, height=6)
 par(mar=c(3.1,2.1,2.1,1.1), mgp=c(1.5,.75,0))
 
-CHECK.TC <- NULL
 OUT <- NULL
+HI.COV <- NULL
 
 for(i in 1:length(files)){
   ls5.stack <- brick(files[i])
-  ## calculate cloud mask -- best way to do this? 
-  ## maybe using QA band?
+  ## calculate cloud mask using QA band
   # try(raster::plotRGB(ls5.stack, r=3, g=2, b=1, scale=ls5.stack@data@max[1:3]), silent=TRUE)
-    # graphics::text(x=lo.x, y=hi.y, labels=paste0('pre-mask\n',files[i]), col='yellow', adj=c(0,1))
+  #   graphics::text(x=lo.x, y=hi.y, labels=paste0('pre-mask\n',files[i]), col='yellow', adj=c(0,1))
   qa.test <- classifyQA(ls5.stack$BQA_dn, type=c('cloud'), sensor='TM', confLayers=TRUE) ## create cloud mask with classifyQA
-  plot(qa.test) ## plot cloud mask
-    graphics::text(x=lo.x, y=hi.y, labels=files[i], col='black', adj=c(0,1))
+  # plot(qa.test) ## plot cloud mask
+  #   graphics::text(x=lo.x, y=hi.y, labels=files[i], col='black', adj=c(0,1))
   qa.test[qa.test > 1] <- NA ## if confLayers==TRUE
   msk.ls5.stack <- mask(ls5.stack, mask=qa.test) ## apply mask to scene
   # try(plotRGB(msk.ls5.stack, r=3, g=2, b=1, scale=msk.ls5.stack@data@max[1:3]), silent=TRUE)
   #   graphics::text(x=lo.x, y=hi.y, labels=paste0('post-mask\n',files[i]), col='yellow', adj=c(0,1))
+  
+  ## calculate proportion of cloud-masked cells
   qa.freq <- freq(qa.test, value=NA) ## number of cells ID'ed w/ cloud cover
-  
-  ## compare QA band approach to cloudMask approach using blue and thermal bands
-  cm.test <- cloudMask(ls5.stack, threshold=0.25, blue='B1_dn', tir='B6_dn', buffer=1)
-  plot(cm.test)
-    graphics::text(x=lo.x, y=hi.y, labels=files[i], col='black', adj=c(0,1))
-  cm.freq <- freq(cm.test$CMASK, value=1) ## number of cells ID'ed w/ cloud cover
-  
-  ## # of cells in extent
-  n.cells <- dim(ls5.stack)[1]*dim(ls5.stack)[2]
-  
-  ## proportion masked with different methods
+  n.cells <- dim(ls5.stack)[1]*dim(ls5.stack)[2] ## number of cells in cropped scene
+  ## If cloud cover is >10%, write image to PDF
+  ##### this seems to catch a few scenes that appear to be just fine? #####
+  ## any QA checks I should be doing before these pre-processing steps?
   scene <- gsub('_CROPPED.grd', '', files[i])
-  save <- c(scene, qa.freq/n.cells, cm.freq/n.cells)
+  if(qa.freq/n.cells >= 0.1){
+    try(raster::plotRGB(ls5.stack, r=3, g=2, b=1, scale=ls5.stack@data@max[1:3]), silent=TRUE)
+      graphics::text(x=lo.x, y=hi.y, labels=paste0('pre-mask\n',files[i]), col='yellow', adj=c(0,1))
+      HI.COV <- c(HI.COV, scene)
+  }
+
+  save <- c(scene, qa.freq/n.cells)
   OUT <- rbind(OUT, save)
-  
   
   # ## apply TOA correction - 'apref' = apparent reflectance (top-of-atmosphere reflectance)
   # ls5.cor.stack <- radCor(msk.ls5.stack, m.data, method='apref', verbose=TRUE, bandSet=m.data$DATA$BANDS)
@@ -132,7 +131,8 @@ for(i in 1:length(files)){
   # w.ness <- extract(ls5.tc.cor$wetness, mnd.locs, method='simple', df=TRUE, cellnumbers=TRUE, buffer=78)
   # b.ness <- extract(ls5.tc.cor$brightness, mnd.locs, method='simple', df=TRUE, cellnumbers=TRUE, buffer=78)
   # ## check TC output, just to be safe
-  # scene.id <- m.data$SCENE_ID
+  # stopifnot(all(g.ness[,c(1,2)] == w.ness[,c(1,2)]), all(g.ness[,c(1,2)] == b.ness[,c(1,2)]))
+  
   # if(all(g.ness[,c(1,2)] == w.ness[,c(1,2)]) & all(g.ness[,c(1,2)] == b.ness[,c(1,2)])){
   #   tc.check <- c(scene.id, 'PASS')
   #   CHECK.TC <- rbind(CHECK.TC, tc.check)
@@ -157,6 +157,7 @@ for(i in 1:length(files)){
   # setwd('/Volumes/avril_data/krat_remote_sensing/cropped_landsat45tm_scenes/')
   # 
   # ## define data to be saved and format for writing output
+  # scene.id <- m.data$SCENE_ID
   # acq.date <- m.data$ACQUISITION_DATE
   # path <- m.data$PATH_ROW[1]
   # row <- m.data$PATH_ROW[2]
@@ -192,13 +193,11 @@ for(i in 1:length(files)){
 }
 dev.off()
 
-table(CHECK.TC[,2])
-
 ##### Exploring cloud masking output #####
+par(mar=c(5.1,4.1,4.1,2.1))
 res <- as.data.frame(OUT)
-colnames(res) <- c('Landsat.Product.Identifier','qa.res','cm.res')
+colnames(res) <- c('Landsat.Product.Identifier','qa.res')
 res$qa.res <- as.numeric(paste(res$qa.res))
-res$cm.res <- as.numeric(paste(res$cm.res))
 ## merge with scene-level cloud cover info
 scenes.avail <- read.csv('/Users/Avril/Documents/krat_remote_sensing/landsat_5_data_overviews/LS5_C1L1_1989_to_2005.csv')
 scenes.avail <- scenes.avail[,c('Landsat.Product.Identifier','Scene.Cloud.Cover')]
@@ -206,8 +205,7 @@ res <- merge(x=res, y=scenes.avail, by='Landsat.Product.Identifier')
 ## compare results
 plot(res$Scene.Cloud.Cover, res$qa.res, pch=19, cex=0.8, col=alpha('blue', 0.8))
   abline(lm(res$qa.res~res$Scene.Cloud.Cover))
-plot(res$Scene.Cloud.Cover, res$cm.res, pch=19, cex=0.8, col=alpha('blue', 0.8))
-  abline(lm(res$cm.res~res$Scene.Cloud.Cover))
+
 
 ##### Do some data viz for current run #####
 setwd('/Volumes/avril_data/krat_remote_sensing/tc_output_tables/')
