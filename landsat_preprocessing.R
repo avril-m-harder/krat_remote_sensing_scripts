@@ -1,6 +1,7 @@
 # install.packages('pROC')
 # install.packages('raster')
 # install.packages('RStoolbox')
+library(sp)
 library(raster)
 library(RStoolbox)
 library(viridis)
@@ -71,7 +72,8 @@ hi.x <- 665600
 lo.y <- 3497000
 hi.y <- 3499750
 
-setwd('/Volumes/avril_data/krat_remote_sensing/cropped_landsat45tm_scenes/')
+# setwd('/Volumes/avril_data/krat_remote_sensing/cropped_landsat45tm_scenes/')
+setwd('/Users/Avril/Documents/krat_remote_sensing/cropped_landsat45tm_scenes/')
 files <- list.files(pattern="*.grd")
 
 pdf(file='/Users/Avril/Desktop/cloud_mask_test.pdf', width=6, height=6)
@@ -83,11 +85,11 @@ HI.COV <- NULL
 for(i in 1:length(files)){
   ls5.stack <- brick(files[i])
   ## calculate cloud mask using QA band
-  # try(raster::plotRGB(ls5.stack, r=3, g=2, b=1, scale=ls5.stack@data@max[1:3]), silent=TRUE)
-  #   graphics::text(x=lo.x, y=hi.y, labels=paste0('pre-mask\n',files[i]), col='yellow', adj=c(0,1))
+  try(raster::plotRGB(ls5.stack, r=3, g=2, b=1, scale=ls5.stack@data@max[1:3]), silent=TRUE)
+    graphics::text(x=lo.x, y=hi.y, labels=paste0('pre-mask\n',files[i]), col='yellow', adj=c(0,1))
   qa.test <- classifyQA(ls5.stack$BQA_dn, type=c('cloud'), sensor='TM', confLayers=TRUE) ## create cloud mask with classifyQA
   # plot(qa.test) ## plot cloud mask
-  #   graphics::text(x=lo.x, y=hi.y, labels=files[i], col='black', adj=c(0,1))
+    # graphics::text(x=lo.x, y=hi.y, labels=files[i], col='black', adj=c(0,1))
   qa.test[qa.test > 1] <- NA ## if confLayers==TRUE
   msk.ls5.stack <- mask(ls5.stack, mask=qa.test) ## apply mask to scene
   # try(plotRGB(msk.ls5.stack, r=3, g=2, b=1, scale=msk.ls5.stack@data@max[1:3]), silent=TRUE)
@@ -101,16 +103,37 @@ for(i in 1:length(files)){
   ## any QA checks I should be doing before these pre-processing steps?
   scene <- gsub('_CROPPED.grd', '', files[i])
   if(qa.freq/n.cells >= 0.1){
-    try(raster::plotRGB(ls5.stack, r=3, g=2, b=1, scale=ls5.stack@data@max[1:3]), silent=TRUE)
-      graphics::text(x=lo.x, y=hi.y, labels=paste0('pre-mask\n',files[i]), col='yellow', adj=c(0,1))
-      HI.COV <- c(HI.COV, scene)
+    raster::plotRGB(ls5.stack, r=3, g=2, b=1, scale=ls5.stack@data@max[1:3])
+      graphics::text(x=lo.x, y=hi.y, labels=paste0('pre-mask - FAIL\n',files[i]), col='yellow', adj=c(0,1))
+    HI.COV <- c(HI.COV, scene)
+    plot(qa.test)
+      graphics::text(x=lo.x, y=hi.y, labels=files[i], col='black', adj=c(0,1))
+      save <- c(scene, qa.freq/n.cells)
+      OUT <- rbind(OUT, save)
   }
 
-  save <- c(scene, qa.freq/n.cells)
-  OUT <- rbind(OUT, save)
+  # save <- c(scene, qa.freq/n.cells)
+  # OUT <- rbind(OUT, save)
   
-  # ## apply TOA correction - 'apref' = apparent reflectance (top-of-atmosphere reflectance)
-  # ls5.cor.stack <- radCor(msk.ls5.stack, m.data, method='apref', verbose=TRUE, bandSet=m.data$DATA$BANDS)
+  ## read in metadata for original scene
+  d <- gsub('_CROPPED.grd', '', files[i])
+  setwd(paste0('/Volumes/avril_data/krat_remote_sensing/raw_landsat45tm_scene_downloads/',d,'/'))
+  md.file <- list.files(pattern=glob2rx('*MTL.txt'), full.names=TRUE)
+  m.data <- readMeta(md.file) ## works for LS5 Collection 1 Level 1 data - errors with Collection 2 Level 1
+  setwd('/Volumes/avril_data/krat_remote_sensing/cropped_landsat45tm_scenes/')
+  
+  ## apply TOA correction - 'apref' = apparent reflectance (top-of-atmosphere reflectance)
+  ls5.cor.stack <- radCor(msk.ls5.stack, m.data, method='apref', verbose=TRUE, bandSet=m.data$DATA$BANDS)
+  raster::plotRGB(ls5.cor.stack, r=3, g=2, b=1, scale=c(ls5.cor.stack@layers[[1]]@data@max,
+                              ls5.cor.stack@layers[[2]]@data@max, ls5.cor.stack@layers[[3]]@data@max))
+  
+  ## apply atmospheric correction (haze removal)
+  haze <- estimateHaze(msk.ls5.stack, darkProp = 0.01, hazeBand = c("B1_dn", "B2_dn", "B3_dn", "B4_dn"), plot=TRUE)
+  haz.msk.ls5.stack <- radCor(msk.ls5.stack, metaData = m.data, hazeValues = haze,
+                              hazeBands = c("B1_dn", "B2_dn", "B3_dn", "B4_dn"), method = "sdos")
+  raster::plotRGB(haz.msk.ls5.stack, r=3, g=2, b=1, scale=c(haz.msk.ls5.stack@layers[[1]]@data@max,
+                               haz.msk.ls5.stack@layers[[2]]@data@max, haz.msk.ls5.stack@layers[[3]]@data@max))
+  
   
   # ## manually select the Landsat5TM bands you need for Tasseled Cap (1,2,3,4,5,7)
   # tc.cor.stack <- raster::subset(ls5.cor.stack, subset=c('B1_tre','B2_tre','B3_tre','B4_tre','B5_tre','B7_tre'))
@@ -148,14 +171,7 @@ for(i in 1:length(files)){
   #   plot(rasterToPolygons(r2, dissolve=TRUE), add=TRUE, border='red', lwd=2)
   ## maybe save data for focal pixels, then figure out which pixels are in the buffer zone, and save values for those,
   ## with key linking cell numbers in buffer zone to corresponding focal pixels?
-  
-  # ## read in metadata for original scene
-  # d <- gsub('_CROPPED.grd', '', files[i])
-  # setwd(paste0('/Volumes/avril_data/krat_remote_sensing/raw_landsat45tm_scene_downloads/',d,'/'))
-  # md.file <- list.files(pattern=glob2rx('*MTL.txt'), full.names=TRUE)
-  # m.data <- readMeta(md.file) ## works for LS5 Collection 1 Level 1 data - errors with Collection 2 Level 1
-  # setwd('/Volumes/avril_data/krat_remote_sensing/cropped_landsat45tm_scenes/')
-  # 
+
   # ## define data to be saved and format for writing output
   # scene.id <- m.data$SCENE_ID
   # acq.date <- m.data$ACQUISITION_DATE
