@@ -40,7 +40,7 @@ line.w <- 0.5
 grey <- "gray95" ## other greens: springgreen4  #B5D383  mediumseagreen #ADF2CB #76C599
 blue <- 'lightblue2' ## other blues: cadetblue1 #98CAC2  lightblue2  #DFF7FF
 ## range map
-pdf('/Users/Avril/Desktop/map.pdf', width=6, height=6)
+# pdf('/Users/Avril/Desktop/map.pdf', width=6, height=6)
 ggplot(data = states) +
   theme_classic() +
   theme(panel.background = element_rect(fill=alpha(blue, al)),
@@ -60,7 +60,7 @@ ggplot(data = states) +
                  dist=200, dist_unit='km', st.bottom=TRUE, st.color='black',
                  transform=TRUE, location='bottomleft', st.size=3, st.dist=.03) +
   coord_sf(xlim = c(-117, -98), ylim = c(20, 38), expand = FALSE)
-dev.off()
+# dev.off()
 
 ## range map with study site point or krat
 ## set bounds for krat image
@@ -69,6 +69,9 @@ xmin <- -109.25 - size
 xmax <- -109.25 + size
 ymin <- 31.6166667 - size
 ymax <- 31.6166667 + size
+
+al <- 1
+line.w <- 0
 
 rat <- readTIFF('IMG_1944.TIF', native=FALSE)
 r <- rasterGrob(rat, interpolate=TRUE)
@@ -84,13 +87,24 @@ ggplot(data = states) +
   ## US-Mexico border
   geom_sf(data = border, col='grey30', lwd=0.5) +
   ## add range shapefile
-  geom_sf(data = range, col='cadetblue4', fill=alpha('cadetblue', 0.7), lwd=line.w) + ## other blues: cadetblue1 #98CAC2
+  geom_sf(data = range, col='cadetblue4', fill=alpha('cadetblue', 0.8), lwd=line.w) + ## other blues: cadetblue1 #98CAC2
   ## add site coords
   # geom_point(y=31.6166667, x=-109.25, pch=8) +
   ## add scalebar
   ggsn::scalebar(x.min=-115, x.max=-98, y.min=21, y.max=38,
                  dist=200, dist_unit='km', st.bottom=TRUE, st.color='black',
                  transform=TRUE, location='bottomleft', st.size=3, st.dist=.03) +
+  ## add krat!
+  annotation_custom(r, xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax) +
+  coord_sf(xlim = c(-117, -98), ylim = c(20, 38), expand = FALSE)
+dev.off()
+
+al <- 0
+pdf('/Users/Avril/Desktop/just_krat.pdf', width=5, height=5)
+ggplot(data = states) +
+  theme_classic() +
+  theme(panel.background = element_rect(fill = "transparent", colour = NA),
+        plot.background = element_rect(fill = "transparent", colour = NA)) +
   ## add krat!
   annotation_custom(r, xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax) +
   coord_sf(xlim = c(-117, -98), ylim = c(20, 38), expand = FALSE)

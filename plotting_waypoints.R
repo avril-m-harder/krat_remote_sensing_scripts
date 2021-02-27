@@ -253,7 +253,7 @@ plot(c(0, mnd.locs$long), c(0, mnd.locs$lat), pch=19, cex=0.5, col='blue', main=
 #   points(mnd.locs.plot, pch=19, cex=0.5, col='yellow')
 #   points(ref.plot, pch=13, cex=3, col='lightgreen')
 # dev.off()
-# 
+
 # ##### 3E. Compare locations of mounds plotting using GPS coordinates for mounds to locations backcalculated using distance to reference point in database #####
 # head(gps.locs) ## GPS-marked waypoint coords for mound locations
 # head(mnd.locs) ## back-calculated coordinates for mound locations based on reference distances in database
@@ -545,4 +545,46 @@ plot(c(0, int.locs$long), c(0, int.locs$lat), pch=19, cex=0.5, col='transparent'
          pch=21, col='black', bg='green', cex=1) ## all points labeled 'R2' in database 
   legend('bottomright', legend=c('reference point','GPS marked (n=188)','unmarked (n=20)','R2 in database (n=6)'), pt.cex=c(1,0.5,1,1),
          col=c('springgreen4','blue4','black','black'), pt.bg=c(NA,NA,'yellow','green'), pch=c(13,19,21,21), inset=c(0.025,0.025))
+dev.off()
+
+##### 5. Plot mounds with known GPS coords over high-res imagery #####
+## read in mound waypoints
+mnd.locs <- read.csv('/Users/Avril/Documents/krat_remote_sensing/intermediate_data/mound_GPS_coords_n188.csv')
+mnd.locs$ID <- 1:nrow(mnd.locs) ## add column for later matching up with TC extracted pixel values
+mnd.cells <- mnd.locs[,c(4,5)] ## save ID and db.name for saving cell names later
+coordinates(mnd.locs) <- c('long','lat') ## converts to SpatialPointsDataFrame object for plotting
+proj4string(mnd.locs) <- CRS("+proj=longlat +datum=WGS84") 
+mnd.locs <- sp::spTransform(mnd.locs, CRS("+proj=utm +zone=12 +ellps=WGS84 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs"))
+
+## import high-res orthoimagery files and whittle down to extent
+setwd('/Users/Avril/Documents/krat_remote_sensing/site_hi_res_orthoimagery/')
+all_oi_files <- list.files(pattern = glob2rx("*tif$"),
+                           full.names = TRUE)
+
+block.5 <- raster(all_oi_files[5])
+block.4 <- raster(all_oi_files[4])
+right <- raster::merge(block.4, block.5)
+plot(right, col=gray(0:100 / 100))
+
+block.1 <- raster(all_oi_files[1])
+block.2 <- raster(all_oi_files[2])
+left <- raster::merge(block.1, block.2)
+plot(left, col=gray(0:100 / 100))
+
+## merge left and right sides of image to plot extent of interest
+full <- raster::merge(left, right)
+
+## set extent coordinates
+lo.x <- 663750-200
+hi.x <- 665100+500
+lo.y <- 3497800
+hi.y <- 3499400+50
+## make extent object
+ext <- extent(lo.x, hi.x, lo.y, hi.y)
+
+pdf('/Users/Avril/Desktop/hires_calc_mound_locations.pdf', width=7, height=5.87)
+plot(full, col=gray(0:100 / 100), ext=ext, legend=FALSE, xaxt='n', yaxt='n')
+  points(mnd.locs, pch=19, cex=0.5, col='yellow3')
+  scalebar(d=500, xy=c(665000,3497950), lonlat=FALSE, adj=c(-1.1,-.30), below='meters', lwd=3, col='white')
 dev.off()  
+  
