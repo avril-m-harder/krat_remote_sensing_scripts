@@ -38,7 +38,7 @@ plot(out$doy, out$greenness, col=out$year, pch=19, cex=0.8)
 plot(out$doy, out$wetness, col=out$year, pch=19, cex=0.8)
 ## plot years separately
 # pdf('/Users/Avril/Desktop/test.pdf', height=18, width=9)
-par(mfrow=c(9,2))
+# par(mfrow=c(9,2))
 for(i in unique(out$year)){
   sub <- out[which(out$year == i),]
   plot(sub$doy, sub$wetness, col=sub$path, pch=19, cex=1, main=i)
@@ -46,9 +46,6 @@ for(i in unique(out$year)){
 # dev.off()
 
 ##### GIF attempt #####
-## read in background image
-bg <- raster('/Users/Avril/Documents/krat_remote_sensing/site_hi_res_orthoimagery/cropped_highresortho.grd')
-plot(bg, col=gray(0:100 / 100))
 ## read in TC data
 plot.dat <- tc.dat[,-1] ## get rid of ID, because there are repeat cell values across mound IDs
 plot.dat <- plot.dat[!duplicated(plot.dat),] ## get rid of duplicated rows (2,600,424 rows --> 383,616 rows)
@@ -86,19 +83,45 @@ coordinates(mnd.locs) <- c('long','lat') ## converts to SpatialPointsDataFrame o
 proj4string(mnd.locs) <- CRS("+proj=longlat +datum=WGS84") 
 mnd.locs <- spTransform(mnd.locs, CRS("+proj=utm +zone=12 +ellps=WGS84 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs"))
 
-# ## read in 1 cropped scene to get background image
-# ls5.stack <- brick('/Volumes/avril_data/krat_remote_sensing/cropped_landsat45tm_scenes/LT05_L1TP_035038_20051121_20160911_01_T1_CROPPED.grd')
-# raster::plotRGB(ls5.stack, r=3, g=2, b=1, scale=ls5.stack@data@max[1:3], margins=FALSE)
+## read in 1 cropped scene to get background image
+ls5.stack <- brick('/Volumes/avril_data/krat_remote_sensing/cropped_landsat45tm_scenes/LT05_L1TP_035038_20051121_20160911_01_T1_CROPPED.grd')
+raster::plotRGB(ls5.stack, r=3, g=2, b=1, scale=ls5.stack@data@max[1:3], margins=FALSE)
 
-# ## make buffer outline
-# plot(ls5.stack$B1_dn, xlab='UTM westing coordinate (m)', ylab='UTM northing coordinate (m)', bty='n',
-#      xlim=c(lo.x, hi.x), ylim=c(lo.y, hi.y), main='Buffer extracted\n(greenness values)')
-#   points(mnd.locs, pch=19, cex=0.2)
-#   g.ness <- extract(ls5.stack$B1_dn, mnd.locs, method='simple', df=TRUE, cellnumbers=TRUE, buffer=78)
-#   r2 <- ls5.stack$B1_dn
-#   r2[setdiff(seq_len(ncell(r2)), unique(g.ness[,2]))] <- NA
-#   r2[!is.na(r2)] <- 1
-#   plot(rasterToPolygons(r2, dissolve=TRUE), add=TRUE, border='black', lwd=2)
+## read in high res background image
+bg <- raster('/Users/Avril/Documents/krat_remote_sensing/site_hi_res_orthoimagery/cropped_highresortho.grd')
+plot(bg, col=gray(0:100 / 100))
+## memory issue with projection conversion -- split into 4 smaller images first?
+xmin <- extent(bg)[1]
+xmax <- extent(bg)[2]
+ymin <- extent(bg)[3]
+ymax <- extent(bg)[4]
+## segment 1
+ext.1 <- extent((xmin+xmax)/2, xmax, (ymin+ymax)/2, ymax)
+bg.1 <- crop(bg, ext.1)
+bg1.reproj <- projectRaster(bg.1, crs=crs(ls5.stack)) ## reproject bg image to match crs of ls5 data
+## segment 2
+ext.2 <- extent((xmin+xmax)/2, xmax, ymin, (ymin+ymax)/2)
+bg.2 <- crop(bg, ext.2)
+bg2.reproj <- projectRaster(bg.2, crs=crs(ls5.stack)) ## reproject bg image to match crs of ls5 data
+## segment 3
+ext.3 <- extent(xmin, (xmin+xmax)/2, ymin, (ymin+ymax)/2)
+bg.3 <- crop(bg, ext.3)
+bg3.reproj <- projectRaster(bg.3, crs=crs(ls5.stack)) ## reproject bg image to match crs of ls5 data
+## segment 4
+ext.4 <- extent(xmin, (xmin+xmax)/2, (ymin+ymax)/2, ymax)
+bg.4 <- crop(bg, ext.4)
+bg4.reproj <- projectRaster(bg.4, crs=crs(ls5.stack)) ## reproject bg image to match crs of ls5 data
+bg.reproj <- raster::merge(bg1.reproj, bg2.reproj, bg3.reproj, bg4.reproj)
+
+## make buffer outline - should work for all 3 metrics
+plot(ls5.stack$B1_dn, xlab='UTM westing coordinate (m)', ylab='UTM northing coordinate (m)', bty='n',
+     xlim=c(lo.x, hi.x), ylim=c(lo.y, hi.y), main='Buffer extracted\n(greenness values)')
+  points(mnd.locs, pch=19, cex=0.2)
+  g.ness <- extract(ls5.stack$B1_dn, mnd.locs, method='simple', df=TRUE, cellnumbers=TRUE, buffer=78)
+  r2 <- ls5.stack$B1_dn
+  r2[setdiff(seq_len(ncell(r2)), unique(g.ness[,2]))] <- NA
+  r2[!is.na(r2)] <- 1
+  plot(rasterToPolygons(r2, dissolve=TRUE), add=TRUE, border='black', lwd=2)
 
 ## final test plot
 sub <- plot.dat[which(plot.dat$scene.id==unique(plot.dat$scene.id)[1]),]
@@ -107,7 +130,7 @@ all.cells <- seq(from=1, to=ncell(ls5.stack$B1_dn)) ## get list of all cell nums
 no.pic <- all.cells[all.cells %notin% pic] ## get list of cell IDs to not visualize
 
 ## set color values
-pal <- viridis ## other options: viridis  magma   plasma  inferno  cividis
+pal <- inferno ## other options: viridis  magma   plasma  inferno  cividis
 w.cuts <- seq(from=min(plot.dat$wetness, na.rm=TRUE), to=max(plot.dat$wetness, na.rm=TRUE), length.out=100)
 b.cuts <- seq(from=min(plot.dat$brightness, na.rm=TRUE), to=max(plot.dat$brightness, na.rm=TRUE), length.out=100)
 g.cuts <- seq(from=min(plot.dat$greenness, na.rm=TRUE), to=max(plot.dat$greenness, na.rm=TRUE), length.out=100)
@@ -130,47 +153,65 @@ for(j in unique(plot.dat$scene.id)){
     temp[sub$cells[i]] <- sub$greenness[i] 
   }
   raster::plotRGB(ls5.stack, r=3, g=2, b=1, scale=ls5.stack@data@max[1:3], margins=FALSE, ext=ext)
-  plot(temp, add=TRUE, legend=FALSE, col=pal(length(g.cuts)), breaks=g.cuts)
+    raster::plot(bg.reproj$layer, col=gray(0:100 / 100), yaxt='n', xaxt='n', legend=FALSE, ext=ext, add=TRUE)
+    plot(temp, add=TRUE, legend=FALSE, col=pal(length(g.cuts)), breaks=g.cuts)
   # plot(rasterToPolygons(r2, dissolve=TRUE), add=TRUE, border='black', lwd=2) ## buffer outline
   # points(mnd.locs, pch=19, cex=0.2)
   print(j)
 }
 dev.off()
 
-##### set up image formatting and put 2 plots together #####
-## set up year data 
-days <- plot.dat[,c('year','doy','dec','scene.id')]
-days <- days[!duplicated(days),]
-days$yval <- 1
-days <- days[order(days$dec),]
-## set up TC data 
-
-pdf('/Users/Avril/Desktop/comb_test.pdf', width=(10/2), height=(11.5/2))
-# layout.show(nf)
-for(i in 1:nrow(days)){
-  layout(matrix(c(1,2), nrow=2,ncol=1), widths=c(8.5,8.5), heights=c(2.5,8.5), respect=TRUE)
-  par(mar=c(2.1,0,1.1,0))
-  scene <- days$scene.id[i] ## save scene ID
-  sub <- plot.dat[which(plot.dat$scene.id==scene),]
-  if(nrow(sub) == nrow(sub[complete.cases(sub),])){
-    # print('TRUE')
-    ## plot date info
-    plot(days$dec[i], days$yval[i], ylim=c(0,1.25), ylab='', xlab='', bty='n', yaxt='n', pch=19, cex=3,
-         xlim=c(1989,2005), xaxt='n')
-    axis(1, at=c(1989,2005), labels=TRUE)
-    lines(x=c(days$dec[i], days$dec[i]), y=c(-0.1, 1), lwd=6)
-    
-    ## plot TC info
-    vals <- plot.dat[which(plot.dat$year == sub$year[1]), 'greenness']
-    ## set color breaks for year-specific values
-    g.cuts <- seq(from=min(vals, na.rm=TRUE), to=max(vals, na.rm=TRUE), length.out=100)
-    for(j in 1:nrow(sub)){
-      temp[sub$cells[j]] <- sub$greenness[j] 
-    }
-    raster::plotRGB(ls5.stack, r=3, g=2, b=1, scale=ls5.stack@data@max[1:3], margins=FALSE, ext=ext, alpha=1)
-    raster::plot(bg$layer, col=gray(0:100 / 100), yaxt='n', xaxt='n', legend=FALSE, ext=ext, add=TRUE)
-      plot(temp, add=TRUE, legend=FALSE, col=pal(length(g.cuts)), breaks=g.cuts, ext=ext)
+### plotting brightness
+pdf('/Users/Avril/Desktop/brightness_test.pdf', width=6, height=8)
+for(j in unique(plot.dat$scene.id)){
+  sub <- plot.dat[which(plot.dat$scene.id==j),]
+  vals <- plot.dat[which(plot.dat$year == sub$year[1]), 'brightness']
+  ## set color breaks for year-specific values
+  g.cuts <- seq(from=min(vals, na.rm=TRUE), to=max(vals, na.rm=TRUE), length.out=100)
+  for(i in 1:nrow(sub)){
+    temp[sub$cells[i]] <- sub$brightness[i] 
   }
-  print(i/nrow(days))
+  raster::plotRGB(ls5.stack, r=3, g=2, b=1, scale=ls5.stack@data@max[1:3], margins=FALSE, ext=ext)
+    raster::plot(bg.reproj$layer, col=gray(0:100 / 100), yaxt='n', xaxt='n', legend=FALSE, ext=ext, add=TRUE)
+    plot(temp, add=TRUE, legend=FALSE, col=pal(length(b.cuts)), breaks=b.cuts)
+  print(j)
 }
 dev.off()
+
+# ##### set up image formatting and put 2 plots together - format squashes TC data layer #####
+# ## set up year data 
+# days <- plot.dat[,c('year','doy','dec','scene.id')]
+# days <- days[!duplicated(days),]
+# days$yval <- 1
+# days <- days[order(days$dec),]
+# ## set up TC data 
+# 
+# pdf('/Users/Avril/Desktop/comb_test.pdf', width=(10/2), height=(11.5/2))
+# # layout.show(nf)
+# for(i in 1:nrow(days)){
+#   layout(matrix(c(1,2), nrow=2,ncol=1), widths=c(8.5,8.5), heights=c(2.5,8.5), respect=TRUE)
+#   par(mar=c(2.1,0,1.1,0))
+#   scene <- days$scene.id[i] ## save scene ID
+#   sub <- plot.dat[which(plot.dat$scene.id==scene),]
+#   if(nrow(sub) == nrow(sub[complete.cases(sub),])){
+#     # print('TRUE')
+#     ## plot date info
+#     plot(days$dec[i], days$yval[i], ylim=c(0,1.25), ylab='', xlab='', bty='n', yaxt='n', pch=19, cex=3,
+#          xlim=c(1989,2005), xaxt='n')
+#     axis(1, at=c(1989,2005), labels=TRUE)
+#     lines(x=c(days$dec[i], days$dec[i]), y=c(-0.1, 1), lwd=6)
+#     
+#     ## plot TC info
+#     vals <- plot.dat[which(plot.dat$year == sub$year[1]), 'greenness']
+#     ## set color breaks for year-specific values
+#     g.cuts <- seq(from=min(vals, na.rm=TRUE), to=max(vals, na.rm=TRUE), length.out=100)
+#     for(j in 1:nrow(sub)){
+#       temp[sub$cells[j]] <- sub$greenness[j] 
+#     }
+#     raster::plotRGB(ls5.stack, r=3, g=2, b=1, scale=ls5.stack@data@max[1:3], margins=FALSE, ext=ext, alpha=1)
+#     raster::plot(bg.reproj$layer, col=gray(0:100 / 100), yaxt='n', xaxt='n', legend=FALSE, ext=ext, add=TRUE)
+#       plot(temp, add=TRUE, legend=FALSE, col=pal(length(g.cuts)), breaks=g.cuts, ext=ext)
+#   }
+#   print(i/nrow(days))
+# }
+# dev.off()
