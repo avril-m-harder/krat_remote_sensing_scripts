@@ -85,16 +85,16 @@ HI.COV <- NULL
 for(i in 1:length(files)){
   ls5.stack <- brick(files[i])
   ## calculate cloud mask using QA band
-  try(raster::plotRGB(ls5.stack, r=3, g=2, b=1, scale=ls5.stack@data@max[1:3]), silent=TRUE)
-    graphics::text(x=lo.x, y=hi.y, labels=paste0('pre-mask\n',files[i]), col='yellow', adj=c(0,1))
+  # try(raster::plotRGB(ls5.stack, r=3, g=2, b=1, scale=ls5.stack@data@max[1:3]), silent=TRUE)
+  #   graphics::text(x=lo.x, y=hi.y, labels=paste0('pre-mask\n',files[i]), col='yellow', adj=c(0,1))
   qa.test <- classifyQA(ls5.stack$BQA_dn, type=c('cloud'), sensor='TM', confLayers=TRUE) ## create cloud mask with classifyQA
-  plot(qa.test) ## plot cloud mask
-    graphics::text(x=lo.x, y=hi.y, labels=paste0('QA cloud result\n',files[i]), col='black', adj=c(0,1))
+  # plot(qa.test) ## plot cloud mask
+  #   graphics::text(x=lo.x, y=hi.y, labels=paste0('QA cloud result\n',files[i]), col='black', adj=c(0,1))
   qa.test[qa.test > 1] <- NA ## if confLayers==TRUE
   ## apply mask to scene
   msk.ls5.stack <- mask(ls5.stack, mask=qa.test)
-  try(plotRGB(msk.ls5.stack, r=3, g=2, b=1, scale=(msk.ls5.stack@data@max[1:3])), silent=TRUE)
-    graphics::text(x=lo.x, y=hi.y, labels=paste0('post-mask\n',files[i]), col='yellow', adj=c(0,1))
+  # try(plotRGB(msk.ls5.stack, r=3, g=2, b=1, scale=(msk.ls5.stack@data@max[1:3])), silent=TRUE)
+  #   graphics::text(x=lo.x, y=hi.y, labels=paste0('post-mask\n',files[i]), col='yellow', adj=c(0,1))
   
   ## calculate proportion of cloud-masked cells
   qa.freq <- freq(qa.test, value=NA) ## number of cells ID'ed w/ cloud cover
@@ -123,30 +123,30 @@ for(i in 1:length(files)){
     
     ## apply TOA correction - 'apref' = apparent reflectance (top-of-atmosphere reflectance)
     ls5.cor.stack <- radCor(msk.ls5.stack, m.data, method='apref', verbose=FALSE, bandSet=m.data$DATA$BANDS)
-    raster::plotRGB(ls5.cor.stack, r=3, g=2, b=1, scale=max(ls5.cor.stack@layers[[1]]@data@max,
-                                ls5.cor.stack@layers[[2]]@data@max, ls5.cor.stack@layers[[3]]@data@max))
-      graphics::text(x=lo.x, y=hi.y, labels=paste0('post-TOA\n',files[i]), col='black', adj=c(0,1))
+    # raster::plotRGB(ls5.cor.stack, r=3, g=2, b=1, scale=max(ls5.cor.stack@layers[[1]]@data@max,
+    #                             ls5.cor.stack@layers[[2]]@data@max, ls5.cor.stack@layers[[3]]@data@max))
+    #   graphics::text(x=lo.x, y=hi.y, labels=paste0('post-TOA\n',files[i]), col='black', adj=c(0,1))
     
     ## apply atmospheric correction (haze removal)
     haze <- estimateHaze(msk.ls5.stack, darkProp = 0.01, hazeBand = c("B1_dn", "B2_dn", "B3_dn", "B4_dn"), plot=FALSE)
     haz.msk.ls5.stack <- radCor(msk.ls5.stack, metaData = m.data, hazeValues = haze,
                                 hazeBands = c("B1_dn", "B2_dn", "B3_dn", "B4_dn"), method = "sdos")
-    raster::plotRGB(haz.msk.ls5.stack, r=3, g=2, b=1, scale=max(haz.msk.ls5.stack@layers[[1]]@data@max,
-                                 haz.msk.ls5.stack@layers[[2]]@data@max, haz.msk.ls5.stack@layers[[3]]@data@max))
-      graphics::text(x=lo.x, y=hi.y, labels=paste0('post-TOA, post-haze\n',files[i]), col='black', adj=c(0,1))
+    # raster::plotRGB(haz.msk.ls5.stack, r=3, g=2, b=1, scale=max(haz.msk.ls5.stack@layers[[1]]@data@max,
+    #                              haz.msk.ls5.stack@layers[[2]]@data@max, haz.msk.ls5.stack@layers[[3]]@data@max))
+    #   graphics::text(x=lo.x, y=hi.y, labels=paste0('post-TOA, post-haze\n',files[i]), col='black', adj=c(0,1))
     
     
     ## manually select the Landsat5TM bands you need for Tasseled Cap (1,2,3,4,5,7)
     tc.cor.stack <- raster::subset(haz.msk.ls5.stack, subset=c('B1_sre','B2_sre','B3_sre','B4_sre','B5_sre','B7_sre'))
     ## apply the Tasseled Cap transformation
     ls5.tc.cor <- tasseledCap(tc.cor.stack, sat='Landsat5TM')
-    par(mar=c(5.1,4.1,4.1,2.1))
-    plot(ls5.tc.cor$greenness, xlab='UTM westing coordinate (m)', ylab='UTM northing coordinate (m)', bty='n', main=paste0(files[i],'\ngreenness'))
-      points(mnd.locs, pch=19, cex=0.2)
-    plot(ls5.tc.cor$brightness, xlab='UTM westing coordinate (m)', ylab='UTM northing coordinate (m)', bty='n', main=paste0(files[i],'\nbrightness'))
-      points(mnd.locs, pch=19, cex=0.2)
-    plot(ls5.tc.cor$wetness, xlab='UTM westing coordinate (m)', ylab='UTM northing coordinate (m)', bty='n', main=paste0(files[i],'\nwetness'))
-      points(mnd.locs, pch=19, cex=0.2)
+    # par(mar=c(5.1,4.1,4.1,2.1))
+    # plot(ls5.tc.cor$greenness, xlab='UTM westing coordinate (m)', ylab='UTM northing coordinate (m)', bty='n', main=paste0(files[i],'\ngreenness'))
+    #   points(mnd.locs, pch=19, cex=0.2)
+    # plot(ls5.tc.cor$brightness, xlab='UTM westing coordinate (m)', ylab='UTM northing coordinate (m)', bty='n', main=paste0(files[i],'\nbrightness'))
+    #   points(mnd.locs, pch=19, cex=0.2)
+    # plot(ls5.tc.cor$wetness, xlab='UTM westing coordinate (m)', ylab='UTM northing coordinate (m)', bty='n', main=paste0(files[i],'\nwetness'))
+    #   points(mnd.locs, pch=19, cex=0.2)
     
     ## extract TC pixel data for mounds & surrounding pixels
     ## for pixel mound is located in (buffer = ## meters);

@@ -84,7 +84,7 @@ proj4string(mnd.locs) <- CRS("+proj=longlat +datum=WGS84")
 mnd.locs <- spTransform(mnd.locs, CRS("+proj=utm +zone=12 +ellps=WGS84 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs"))
 
 ## read in 1 cropped scene to get background image
-ls5.stack <- brick('/Volumes/avril_data/krat_remote_sensing/cropped_landsat45tm_scenes/LT05_L1TP_035038_20051121_20160911_01_T1_CROPPED.grd')
+ls5.stack <- brick('/Users/Avril/Documents/krat_remote_sensing/cropped_landsat45tm_scenes/LT05_L1TP_035038_20051121_20160911_01_T1_CROPPED.grd')
 raster::plotRGB(ls5.stack, r=3, g=2, b=1, scale=ls5.stack@data@max[1:3], margins=FALSE)
 
 ## read in high res background image
@@ -112,6 +112,7 @@ ext.4 <- extent(xmin, (xmin+xmax)/2, (ymin+ymax)/2, ymax)
 bg.4 <- crop(bg, ext.4)
 bg4.reproj <- projectRaster(bg.4, crs=crs(ls5.stack)) ## reproject bg image to match crs of ls5 data
 bg.reproj <- raster::merge(bg1.reproj, bg2.reproj, bg3.reproj, bg4.reproj)
+bg.reproj <- crop(bg.reproj, ext)
 
 ## make buffer outline - should work for all 3 metrics
 plot(ls5.stack$B1_dn, xlab='UTM westing coordinate (m)', ylab='UTM northing coordinate (m)', bty='n',
@@ -132,8 +133,6 @@ no.pic <- all.cells[all.cells %notin% pic] ## get list of cell IDs to not visual
 ## set color values
 pal <- inferno ## other options: viridis  magma   plasma  inferno  cividis
 w.cuts <- seq(from=min(plot.dat$wetness, na.rm=TRUE), to=max(plot.dat$wetness, na.rm=TRUE), length.out=100)
-b.cuts <- seq(from=min(plot.dat$brightness, na.rm=TRUE), to=max(plot.dat$brightness, na.rm=TRUE), length.out=100)
-g.cuts <- seq(from=min(plot.dat$greenness, na.rm=TRUE), to=max(plot.dat$greenness, na.rm=TRUE), length.out=100)
 
 ## set all cells that will never have values to NA
 temp <- ls5.stack$B1_dn
@@ -141,12 +140,26 @@ for(j in no.pic){
   temp[j] <- NA
 }
 
-##### scale colors within years #####
-### plotting greenness
+##### Plotting greenness map + time plot #####
+boxplot(plot.dat$greenness)
+## get rid of extreme greenness value
+ex <- plot.dat[which(plot.dat$greenness == max(plot.dat$greenness, na.rm=TRUE)), 'scene.id']
+plot.g <- plot.dat[which(plot.dat$scene.id != ex),]
+g.cuts <- seq(from=min(plot.g$greenness, na.rm=TRUE), to=max(plot.g$greenness, na.rm=TRUE), length.out=100)
+plot.g <- plot.g[order(plot.g$dec),]
+# ## identify a year that looks pretty good across months
+# plot.g <- plot.g[order(plot.g$year),]
+# for(i in unique(plot.g$year)){
+#   temp <- plot.g[which(plot.g$year == i),]
+#   plot(temp$doy, temp$greenness, pch=19, col='black', main=i)
+# }
+# ## 1998 looks kinda good
+# plot.g <- plot.g[which(plot.g$year == '1998'),]
+
 pdf('/Users/Avril/Desktop/greenness_test.pdf', width=6, height=8)
-for(j in unique(plot.dat$scene.id)){
-  sub <- plot.dat[which(plot.dat$scene.id==j),]
-  vals <- plot.dat[which(plot.dat$year == sub$year[1]), 'greenness']
+for(j in 1:length(unique(plot.g$scene.id))){
+  sub <- plot.g[which(plot.g$scene.id==unique(plot.g$scene.id)[j]),]
+  vals <- plot.g[which(plot.g$year == sub$year[1]), 'greenness']
   ## set color breaks for year-specific values
   g.cuts <- seq(from=min(vals, na.rm=TRUE), to=max(vals, na.rm=TRUE), length.out=100)
   for(i in 1:nrow(sub)){
@@ -154,29 +167,54 @@ for(j in unique(plot.dat$scene.id)){
   }
   raster::plotRGB(ls5.stack, r=3, g=2, b=1, scale=ls5.stack@data@max[1:3], margins=FALSE, ext=ext)
     raster::plot(bg.reproj$layer, col=gray(0:100 / 100), yaxt='n', xaxt='n', legend=FALSE, ext=ext, add=TRUE)
-    plot(temp, add=TRUE, legend=FALSE, col=pal(length(g.cuts)), breaks=g.cuts)
-  # plot(rasterToPolygons(r2, dissolve=TRUE), add=TRUE, border='black', lwd=2) ## buffer outline
-  # points(mnd.locs, pch=19, cex=0.2)
-  print(j)
+    plot(temp, add=TRUE, legend=FALSE, col='transparent', breaks=b.cuts)
+    plot(temp, add=TRUE, legend=FALSE, col=pal(length(g.cuts)), breaks=g.cuts, ext=ext)
+    plot(rasterToPolygons(r2, dissolve=TRUE), add=TRUE, border='white', lwd=0.25) ## buffer outline
+    points(mnd.locs, pch=19, cex=0.4, col='white')
+  print(j/length(unique(plot.dat$scene.id)))
 }
 dev.off()
 
-### plotting brightness
+##### Plotting brightness map + time plot #####
+boxplot(plot.dat$brightness)
+## get rid of bightness values > 0.5
+ex <- plot.dat[which(plot.dat$brightness > 0.5), 'scene.id']
+plot.b <- plot.dat[which(plot.dat$scene.id %notin% ex),]
+b.cuts <- seq(from=min(plot.dat$brightness, na.rm=TRUE), to=max(plot.dat$brightness, na.rm=TRUE), length.out=100)
+
 pdf('/Users/Avril/Desktop/brightness_test.pdf', width=6, height=8)
-for(j in unique(plot.dat$scene.id)){
-  sub <- plot.dat[which(plot.dat$scene.id==j),]
-  vals <- plot.dat[which(plot.dat$year == sub$year[1]), 'brightness']
+for(j in 1:length(unique(plot.b$scene.id))){
+  sub <- plot.b[which(plot.b$scene.id==unique(plot.b$scene.id)[j]),]
+  vals <- plot.b[which(plot.b$year == sub$year[1]), 'brightness']
   ## set color breaks for year-specific values
   g.cuts <- seq(from=min(vals, na.rm=TRUE), to=max(vals, na.rm=TRUE), length.out=100)
   for(i in 1:nrow(sub)){
     temp[sub$cells[i]] <- sub$brightness[i] 
   }
-  raster::plotRGB(ls5.stack, r=3, g=2, b=1, scale=ls5.stack@data@max[1:3], margins=FALSE, ext=ext)
+  raster::plotRGB(ls5.stack, r=3, g=2, b=1, scale=ls5.stack@data@max[1:3], col='transparent', margins=FALSE, ext=ext)
     raster::plot(bg.reproj$layer, col=gray(0:100 / 100), yaxt='n', xaxt='n', legend=FALSE, ext=ext, add=TRUE)
-    plot(temp, add=TRUE, legend=FALSE, col=pal(length(b.cuts)), breaks=b.cuts)
-  print(j)
+    plot(temp, add=TRUE, legend=FALSE, col='transparent', breaks=b.cuts)
+    plot(temp, add=TRUE, legend=FALSE, col=pal(length(b.cuts)), breaks=b.cuts, ext=ext)
+    plot(rasterToPolygons(r2, dissolve=TRUE), add=TRUE, border='white', lwd=0.25) ## buffer outline
+    points(mnd.locs, pch=19, cex=0.4, col='white')
+  print(j/length(unique(plot.b$scene.id)))
 }
 dev.off()
+# ## set up year data and time plot to go with brightness
+# days <- plot.dat[,c('year','doy','dec','scene.id')]
+# days <- days[!duplicated(days),]
+# days$yval <- 1
+# days <- days[order(days$dec),]
+# days <- days[which(days$scene.id %notin% ex),]
+# pdf('/Users/Avril/Desktop/brightness_date.pdf', width=5, height=1)
+# par(mar=c(2.1,0,0,0))
+# for(i in 1:nrow(days)){
+# plot(days$dec[i], days$yval[i], ylim=c(0,1.25), ylab='', xlab='', bty='n', yaxt='n', pch=19, cex=3,
+#      xlim=c(1989,2005), xaxt='n')
+#   axis(1, at=c(1989,2005), labels=TRUE)
+#   lines(x=c(days$dec[i], days$dec[i]), y=c(-0.1, 1), lwd=6)
+# }
+# dev.off()
 
 # ##### set up image formatting and put 2 plots together - format squashes TC data layer #####
 # ## set up year data 
