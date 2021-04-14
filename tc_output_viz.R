@@ -24,6 +24,18 @@ mc.key <- read.csv(paste0(mc.fn,'.csv'))
 mean.dat <- tc.dat[,-1] ## get rid of ID, because there are repeat cell values across mound IDs
 mean.dat <- mean.dat[!duplicated(mean.dat),] ## get rid of duplicated rows (2,600,424 rows --> 383,616 rows)
 mean.dat$year <- as.numeric(do.call(rbind, strsplit(as.character(mean.dat$acq.date), split='-', fixed=TRUE))[,1])
+## before taking means, plot distributions of each day within each year
+for(i in unique(mean.dat$year)){
+  sub <- mean.dat[which(mean.dat$year == i),]
+  sub <- sub[order(sub$doy),]
+  sub$doy <- as.factor(sub$doy)
+  print(ggplot(sub, aes(x=doy, y=wetness)) + 
+    ggtitle(paste0(i, ' - wetness')) +
+    theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+            panel.background = element_blank(), axis.line = element_line(colour = "black")) +
+    geom_boxplot(colour='black', fill='grey'))
+}
+
 ## loop over observations and take mean of all cell TC values for each timepoint
 OUT <- NULL
 for(i in unique(mean.dat$scene.id)){
