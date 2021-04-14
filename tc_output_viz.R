@@ -7,8 +7,11 @@ library(rgdal)
 `%notin%` <- Negate(`%in%`)
 setwd('/Users/Avril/Documents/krat_remote_sensing/tc_output_tables/')
 
-tc.fn <- 'tc_initial_test' ## for TC data
-mc.fn <- 'mnd_key_initial_test' ## for mound/cell ID key
+tc.fn <- 'tc_cloud_free' ## for TC data
+## options: tc_initial_test   tc_cloud_free
+
+mc.fn <- 'mnd_cloud_free' ## for mound/cell ID key
+## options: mnd_key_initial_test   mnd_cloud_free
 
 tc.dat <- read.csv(paste0(tc.fn,'.csv'))
 mc.key <- read.csv(paste0(mc.fn,'.csv'))
@@ -29,8 +32,8 @@ for(i in unique(mean.dat$year)){
   sub <- mean.dat[which(mean.dat$year == i),]
   sub <- sub[order(sub$doy),]
   sub$doy <- as.factor(sub$doy)
-  print(ggplot(sub, aes(x=doy, y=wetness)) + 
-    ggtitle(paste0(i, ' - wetness')) +
+  print(ggplot(sub, aes(x=doy, y=greenness)) + 
+    ggtitle(paste0(i, ' - greenness')) +
     theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
             panel.background = element_blank(), axis.line = element_line(colour = "black")) +
     geom_boxplot(colour='black', fill='grey'))
@@ -143,7 +146,7 @@ all.cells <- seq(from=1, to=ncell(ls5.stack$B1_dn)) ## get list of all cell nums
 no.pic <- all.cells[all.cells %notin% pic] ## get list of cell IDs to not visualize
 
 ## set color values
-pal <- inferno ## other options: viridis  magma   plasma  inferno  cividis
+pal <- plasma ## other options: viridis  magma   plasma  inferno  cividis   mako    turbo   rocket
 w.cuts <- seq(from=min(plot.dat$wetness, na.rm=TRUE), to=max(plot.dat$wetness, na.rm=TRUE), length.out=100)
 
 ## set all cells that will never have values to NA
@@ -179,7 +182,7 @@ for(j in 1:length(unique(plot.g$scene.id))){
   }
   raster::plotRGB(ls5.stack, r=3, g=2, b=1, scale=ls5.stack@data@max[1:3], margins=FALSE, ext=ext)
     raster::plot(bg.reproj$layer, col=gray(0:100 / 100), yaxt='n', xaxt='n', legend=FALSE, ext=ext, add=TRUE)
-    plot(temp, add=TRUE, legend=FALSE, col='transparent', breaks=b.cuts)
+    plot(temp, add=TRUE, legend=FALSE, col='transparent', breaks=g.cuts)
     plot(temp, add=TRUE, legend=FALSE, col=pal(length(g.cuts)), breaks=g.cuts, ext=ext)
     plot(rasterToPolygons(r2, dissolve=TRUE), add=TRUE, border='white', lwd=0.25) ## buffer outline
     points(mnd.locs, pch=19, cex=0.4, col='white')
