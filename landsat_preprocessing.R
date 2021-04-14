@@ -19,7 +19,7 @@ proj4string(mnd.locs) <- CRS("+proj=longlat +datum=WGS84")
 mnd.locs <- sp::spTransform(mnd.locs, CRS("+proj=utm +zone=12 +ellps=WGS84 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs"))
 
 #
-##### Loop over directories of raw data and write cropped raster files #####
+##### Loop over directories of raw data and write cropped raster files (output already saved) #####
 # ### Only need to run this loop once ###
 # ## loop over downloads in scratch space (n=648) 
 # setwd('/Volumes/avril_data/krat_remote_sensing/raw_landsat45tm_scene_downloads/')
@@ -60,7 +60,7 @@ mnd.locs <- sp::spTransform(mnd.locs, CRS("+proj=utm +zone=12 +ellps=WGS84 +towg
 # }
 
 
-##### loop over cropped scenes, process, and write TC output #####
+##### Loop over cropped scenes, process, and write TC output #####
 ### Initial test run of this loop = 5 minutes ###
 ## set file names for run
 tc.fn <- 'tc_initial_test' ## for TC data
@@ -220,9 +220,6 @@ dev.off()
 ##### Need to manually review both PDFs (cloud_qa_fails.pdf and test.pdf) to make sure that QA didn't misclassify images #####
 
 
-
-
-
 ##### Do some data viz for current run #####
 setwd('/Volumes/avril_data/krat_remote_sensing/tc_output_tables/')
 
@@ -260,3 +257,6 @@ for(i in 1:length(unique(temp$year))){
   sub <- sub[order(sub$doy),]
   lines(x=sub$doy, y=sub$greenness, col=cols[i])
 }
+
+
+
