@@ -4,13 +4,14 @@ library(viridis)
 library(ggplot2)
 library(scales)
 library(rgdal)
+library(gridExtra)
 `%notin%` <- Negate(`%in%`)
 setwd('/Users/Avril/Documents/krat_remote_sensing/tc_output_tables/')
 
-tc.fn <- 'tc_cloud_free' ## for TC data
+tc.fn <- 'tc_initial_test' ## for TC data
 ## options: tc_initial_test   tc_cloud_free
 
-mc.fn <- 'mnd_cloud_free' ## for mound/cell ID key
+mc.fn <- 'mnd_key_initial_test' ## for mound/cell ID key
 ## options: mnd_key_initial_test   mnd_cloud_free
 
 tc.dat <- read.csv(paste0(tc.fn,'.csv'))
@@ -28,16 +29,36 @@ mean.dat <- tc.dat[,-1] ## get rid of ID, because there are repeat cell values a
 mean.dat <- mean.dat[!duplicated(mean.dat),] ## get rid of duplicated rows (2,600,424 rows --> 383,616 rows)
 mean.dat$year <- as.numeric(do.call(rbind, strsplit(as.character(mean.dat$acq.date), split='-', fixed=TRUE))[,1])
 ## before taking means, plot distributions of each day within each year
-for(i in unique(mean.dat$year)){
+## can look at each metric across doy within each year
+pdf(paste0('/Users/Avril/Desktop/',tc.fn,'_values_by_year.pdf'), width=21, height=7)
+years <- unique(mean.dat$year)
+years <- sort(years)
+for(i in years){
   sub <- mean.dat[which(mean.dat$year == i),]
   sub <- sub[order(sub$doy),]
   sub$doy <- as.factor(sub$doy)
-  print(ggplot(sub, aes(x=doy, y=greenness)) + 
-    ggtitle(paste0(i, ' - greenness')) +
-    theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
-            panel.background = element_blank(), axis.line = element_line(colour = "black")) +
-    geom_boxplot(colour='black', fill='grey'))
+  grid.arrange(
+  (ggplot(sub, aes(x=doy, y=greenness)) + 
+          ylim((min(mean.dat$greenness, na.rm=TRUE)-0.1), (max(mean.dat$greenness, na.rm=TRUE)+0.1)) +
+          ggtitle(paste0(i, ' - greenness')) +
+          theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+                panel.background = element_blank(), axis.line = element_line(colour = "black")) +
+          geom_boxplot(colour='black', fill='grey')),
+  (ggplot(sub, aes(x=doy, y=wetness)) + 
+          ylim((min(mean.dat$wetness, na.rm=TRUE)-0.1), (max(mean.dat$wetness, na.rm=TRUE)+0.1)) +
+          ggtitle(paste0(i, ' - wetness')) +
+          theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+                panel.background = element_blank(), axis.line = element_line(colour = "black")) +
+          geom_boxplot(colour='black', fill='grey')),
+  (ggplot(sub, aes(x=doy, y=brightness)) + 
+          ylim((min(mean.dat$brightness, na.rm=TRUE)-0.1), (max(mean.dat$brightness, na.rm=TRUE)+0.1)) +
+          ggtitle(paste0(i, ' - brightness')) +
+          theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+                panel.background = element_blank(), axis.line = element_line(colour = "black")) +
+          geom_boxplot(colour='black', fill='grey')), nrow=1)
+  
 }
+dev.off()
 
 ## loop over observations and take mean of all cell TC values for each timepoint
 OUT <- NULL
