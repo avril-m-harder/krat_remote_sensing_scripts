@@ -245,9 +245,9 @@ HI.COV <- NULL
 print(paste0('Loop start: ',Sys.time()))
 for(i in 1:length(files)){
   ls5.stack <- brick(files[i])
-  ## calculate cloud mask using QA band
   # try(raster::plotRGB(ls5.stack, r=3, g=2, b=1, scale=ls5.stack@data@max[1:3]), silent=TRUE)
   #   graphics::text(x=lo.x, y=hi.y, labels=paste0('pre-mask\n',files[i]), col='yellow', adj=c(0,1))
+  ## calculate cloud mask using QA band
   qa.test <- classifyQA(ls5.stack$BQA_dn, type=c('cloud'), sensor='TM', confLayers=TRUE) ## create cloud mask with classifyQA
   # plot(qa.test) ## plot cloud mask
   #   graphics::text(x=lo.x, y=hi.y, labels=paste0('QA cloud result\n',files[i]), col='black', adj=c(0,1))
@@ -260,20 +260,20 @@ for(i in 1:length(files)){
   ## calculate proportion of cloud-masked cells
   qa.freq <- freq(qa.test, value=NA) ## number of cells ID'ed w/ cloud cover
   n.cells <- dim(ls5.stack)[1]*dim(ls5.stack)[2] ## number of cells in cropped scene
-  ## If cloud cover is >10%, save name of file for later visualization
+  ## If cloud cover is >=1%, save name of file for later visualization
   scene <- gsub('_CROPPED.grd', '', files[i])
-  if(qa.freq/n.cells >= 0.1){
+  if(qa.freq/n.cells >= 0.01){
     # raster::plotRGB(ls5.stack, r=3, g=2, b=1, scale=ls5.stack@data@max[1:3])
     #   graphics::text(x=lo.x, y=hi.y, labels=paste0('pre-mask - FAIL\n',files[i]), col='yellow', adj=c(0,1))
     HI.COV <- c(HI.COV, scene)
-    plot(qa.test)
-      graphics::text(x=lo.x, y=hi.y, labels=paste0('QA cloud result - FAIL\n',files[i]), col='black', adj=c(0,1))
+    # plot(qa.test)
+    #   graphics::text(x=lo.x, y=hi.y, labels=paste0('QA cloud result - FAIL\n',files[i]), col='black', adj=c(0,1))
     save <- c(scene, qa.freq/n.cells)
     OUT <- rbind(OUT, save)
   }
   
-  ## If cloud cover is <10%, proceed with processing
-  if(qa.freq/n.cells < 0.1){
+  ## If cloud cover is <1%, proceed with processing
+  if(qa.freq/n.cells < 0.01){
     ## read in metadata for original scene
     d <- gsub('_CROPPED.grd', '', files[i])
     setwd(paste0('/Volumes/avril_data/krat_remote_sensing/raw_landsat45tm_scene_downloads/',d,'/'))
@@ -284,9 +284,9 @@ for(i in 1:length(files)){
     
     ## apply TOA correction - 'apref' = apparent reflectance (top-of-atmosphere reflectance) - DN --> TOA ref
     ls5.cor.stack <- radCor(msk.ls5.stack, m.data, method='apref', verbose=FALSE, bandSet=m.data$DATA$BANDS)
-    # raster::plotRGB(ls5.cor.stack, r=3, g=2, b=1, scale=max(ls5.cor.stack@layers[[1]]@data@max,
-    #                             ls5.cor.stack@layers[[2]]@data@max, ls5.cor.stack@layers[[3]]@data@max))
-    #   graphics::text(x=lo.x, y=hi.y, labels=paste0('post-TOA\n',files[i]), col='black', adj=c(0,1))
+    raster::plotRGB(ls5.cor.stack, r=3, g=2, b=1, scale=max(ls5.cor.stack@layers[[1]]@data@max,
+                                                            ls5.cor.stack@layers[[2]]@data@max, ls5.cor.stack@layers[[3]]@data@max))
+    graphics::text(x=lo.x, y=hi.y, labels=paste0('post-TOA\n',files[i]), col='black', adj=c(0,1))
     
     # ## apply atmospheric correction (haze removal) -- NOT CURRENTLY USING (likely to just introduce error without much benefit)
     # haze <- estimateHaze(msk.ls5.stack, darkProp = 0.01, hazeBand = c("B1_dn", "B2_dn", "B3_dn", "B4_dn"), plot=TRUE, maxSlope = TRUE)

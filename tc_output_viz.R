@@ -69,9 +69,10 @@ for(i in unique(mean.dat$scene.id)){
 }
 out <- as.data.frame(OUT)
 colnames(out) <- c('greenness','wetness','brightness','doy','year','path')
-plot(out$doy, out$brightness, col=out$year, pch=19, cex=0.8)
-plot(out$doy, out$greenness, col=out$year, pch=19, cex=0.8)
-plot(out$doy, out$wetness, col=out$year, pch=19, cex=0.8)
+## DOY vs TC's, colored by year
+# plot(out$doy, out$brightness, col=out$year, pch=19, cex=0.8)
+# plot(out$doy, out$greenness, col=out$year, pch=19, cex=0.8)
+# plot(out$doy, out$wetness, col=out$year, pch=19, cex=0.8)
 
 pdf(paste0('/Users/Avril/Desktop/',tc.fn,'_scene_means.pdf'), width=10, height=3.3)
 par(mfrow=c(1,3))
