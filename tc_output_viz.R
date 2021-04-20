@@ -8,10 +8,10 @@ library(gridExtra)
 `%notin%` <- Negate(`%in%`)
 setwd('/Users/Avril/Documents/krat_remote_sensing/tc_output_tables/')
 
-tc.fn <- 'tc_initial_test' ## for TC data
+tc.fn <- 'tc_cloud_free' ## for TC data
 ## options: tc_initial_test   tc_cloud_free
 
-mc.fn <- 'mnd_key_initial_test' ## for mound/cell ID key
+mc.fn <- 'mnd_cloud_free' ## for mound/cell ID key
 ## options: mnd_key_initial_test   mnd_cloud_free
 
 tc.dat <- read.csv(paste0(tc.fn,'.csv'))
@@ -72,6 +72,14 @@ colnames(out) <- c('greenness','wetness','brightness','doy','year','path')
 plot(out$doy, out$brightness, col=out$year, pch=19, cex=0.8)
 plot(out$doy, out$greenness, col=out$year, pch=19, cex=0.8)
 plot(out$doy, out$wetness, col=out$year, pch=19, cex=0.8)
+
+pdf(paste0('/Users/Avril/Desktop/',tc.fn,'_scene_means.pdf'), width=10, height=3.3)
+par(mfrow=c(1,3))
+plot(out$doy, out$brightness, col=alpha('blue', 0.7), pch=19, cex=0.8, xlab='DOY', ylab='Brightness')
+plot(out$doy, out$greenness, col=alpha('blue', 0.7), pch=19, cex=0.8, xlab='DOY', ylab='Greenness')
+plot(out$doy, out$wetness, col=alpha('blue', 0.7), pch=19, cex=0.8, xlab='DOY', ylab='Wetness')
+dev.off()
+
 ## plot years separately
 # pdf('/Users/Avril/Desktop/test.pdf', height=18, width=9)
 # par(mfrow=c(9,2))
