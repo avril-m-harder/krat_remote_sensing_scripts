@@ -17,7 +17,7 @@ library(smoothr)
 library(tiff)
 library(jpeg)
 
-## read in range map shapefile
+## read in range map shapefile (downloaded from IUCN on 2/24/21)
 range <- st_read('redlist_species_data_5d4b0dfc-6c14-467a-a3f6-5d68c8ae2371/data_0.shp')
 plot(range)
 
