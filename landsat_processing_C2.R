@@ -88,134 +88,98 @@ pdf(file='/Users/Avril/Desktop/test.pdf', width=8, height=8)
 par(mar=c(3.1,2.1,2.1,1.1), mgp=c(1.5,.75,0))
 
 OUT <- NULL
-HI.COV <- NULL
 
 for(i in 1:length(files)){
   ls5.stack <- brick(files[i])
-  # try(raster::plotRGB(ls5.stack, r=3, g=2, b=1, scale=ls5.stack@data@max[c(3,2,1)]), silent=FALSE)
-  try(raster::plotRGB(ls5.stack, r=3, g=2, b=1), silent=FALSE)
-    graphics::text(x=lo.x, y=hi.y, labels=paste0('pre-mask\n',files[i]), col='goldenrod2', adj=c(0,1))
+  plot.new()
+  try(raster::plotRGB(ls5.stack, r=3, g=2, b=1, scale=ls5.stack@data@max[c(3,2,1)]), silent=TRUE)
+  # try(raster::plotRGB(ls5.stack, r=3, g=2, b=1), silent=FALSE)
+    graphics::legend('topleft', paste0(i,' - ',files[i]), bty='n', text.col='darkgreen')
   
-  ## try masking clouds using CLOUD_QA band
-  ## only proceed if values other than NA are present in CLOUD_QA band
-  if(all(!is.na(values(ls5.stack$CLOUD.QA_sr)))){
-    values(ls5.stack$CLOUD.QA_sr)[which(values(ls5.stack$CLOUD.QA_sr > 0))] <- NA ## set all values >1 (clouds) to NA for masking
-    msk.ls5.stack <- mask(ls5.stack, mask=ls5.stack$CLOUD.QA_sr)
-    try(plotRGB(msk.ls5.stack, r=3, g=2, b=1), silent=FALSE)
-      graphics::text(x=lo.x, y=hi.y, labels=paste0('post-mask\n',files[i]), col='yellow', adj=c(0,1))
-    ## calculate proportion of cloud-masked cells
-    qa.freq <- table(values(ls5.stack$CLOUD.QA_sr))[1] ## number of cells ID'ed w/o cloud cover
-    n.cells <- dim(ls5.stack)[1]*dim(ls5.stack)[2] ## number of cells in cropped scene
-    ## If cloud cover is >=1%, save name of file for later visualization
-    scene <- gsub('_CROPPED.grd', '', files[i])
-    if(qa.freq/n.cells <= 0.99){ ## if cloud-free cells are <=99% of the image... 
-      ### plots of pre-mask, mask, and post-mask data
-      # raster::plotRGB(ls5.stack, r=3, g=2, b=1, scale=ls5.stack@data@max[c(3,2,1)])
-      #   graphics::text(x=lo.x, y=hi.y, labels=paste0('pre-mask - FAIL\n',files[i]), col='yellow', adj=c(0,1))
-      # plot(ls5.stack$CLOUD.QA_sr)
-      #   graphics::text(x=lo.x, y=hi.y, labels=paste0('QA cloud result - FAIL\n',files[i]), col='black', adj=c(0,1))
-      # try(plotRGB(msk.ls5.stack, r=3, g=2, b=1, scale=(ls5.stack@data@max[c(3,2,1)])), silent=FALSE)
-      #   graphics::text(x=lo.x, y=hi.y, labels=paste0('post-mask - FAIL\n',files[i]), col='yellow', adj=c(0,1))
-        HI.COV <- c(HI.COV, scene)
-        save <- c(scene, qa.freq/n.cells)
-        OUT <- rbind(OUT, save)
-    }
+  ## masking clouds using CLOUD_QA or QA band isn't very accurate;
+  ## just manually review plots to check for cloud cover
+  scene <- gsub('_CROPPED.grd', '', files[i])
+  ## read in metadata for original scene
+  d <- gsub('_CROPPED.grd', '', files[i])
+  setwd(paste0('/Volumes/avril_data/krat_remote_sensing/C2L2_raw_landsat45tm_scene_downloads/',d,'/'))
+  md.file <- list.files(pattern=glob2rx('*MTL.txt'), full.names=TRUE)
+  m.data <- c2l2readMeta(md.file)
+  setwd('/Users/Avril/Documents/krat_remote_sensing/C2L2_cropped_landsat45tm_scenes/')
+  
+  ## no corrections needed because C2L2 data are already in surface reflectance -- 
+  ## can directly apply TC transformation
+  
+  ## manually select the Landsat5TM bands you need for Tasseled Cap (1,2,3,4,5,7)
+  tc.cor.stack <- raster::subset(ls5.stack, subset=c('B1_sr','B2_sr','B3_sr','B4_sr','B5_sr','B7_sr'))
+  ## apply the Tasseled Cap transformation
+  ls5.tc.cor <- tasseledCap(tc.cor.stack, sat='Landsat5TM')
+  # par(mar=c(5.1,4.1,4.1,2.1))
+  # plot(ls5.tc.cor$greenness, xlab='UTM westing coordinate (m)', ylab='UTM northing coordinate (m)', bty='n', main=paste0(files[i],'\ngreenness'))
+  #   points(mnd.locs, pch=19, cex=0.2)
+  # plot(ls5.tc.cor$brightness, xlab='UTM westing coordinate (m)', ylab='UTM northing coordinate (m)', bty='n', main=paste0(files[i],'\nbrightness'))
+  #   points(mnd.locs, pch=19, cex=0.2)
+  # plot(ls5.tc.cor$wetness, xlab='UTM westing coordinate (m)', ylab='UTM northing coordinate (m)', bty='n', main=paste0(files[i],'\nwetness'))
+  #   points(mnd.locs, pch=19, cex=0.2)
+  
+  ## extract TC pixel data for mounds & surrounding pixels
+  ## for pixel mound is located in (buffer = ## meters);
+  ## median dispersal distances from birth to reproductive mound = 77.5 m (females) and 40 m (males)
+  g.ness <- extract(ls5.tc.cor$greenness, mnd.locs, method='simple', df=TRUE, cellnumbers=TRUE, buffer=78)
+  w.ness <- extract(ls5.tc.cor$wetness, mnd.locs, method='simple', df=TRUE, cellnumbers=TRUE, buffer=78)
+  b.ness <- extract(ls5.tc.cor$brightness, mnd.locs, method='simple', df=TRUE, cellnumbers=TRUE, buffer=78)
+  ## check TC output, just to be safe
+  stopifnot(all(g.ness[,c(1,2)] == w.ness[,c(1,2)]), all(g.ness[,c(1,2)] == b.ness[,c(1,2)]))
+  
+  ## plot what this buffer would extract
+  # plot(ls5.tc.cor$greenness, xlab='UTM westing coordinate (m)', ylab='UTM northing coordinate (m)', bty='n',
+  #      xlim=c(lo.x, hi.x), ylim=c(lo.y, hi.y), main='Buffer extracted\n(greenness values)')
+  #   points(mnd.locs, pch=19, cex=0.2)
+  #   r2 <- ls5.tc.cor$greenness
+  #   r2[setdiff(seq_len(ncell(r2)), unique(g.ness[,2]))] <- NA
+  #   r2[!is.na(r2)] <- 1
+  #   plot(rasterToPolygons(r2, dissolve=TRUE), add=TRUE, border='red', lwd=2)
+  ## maybe save data for focal pixels, then figure out which pixels are in the buffer zone, and save values for those,
+  ## with key linking cell numbers in buffer zone to corresponding focal pixels?
+
+  ## define data to be saved and format for writing output
+  scene.id <- m.data$SCENE_ID
+  acq.date <- m.data$ACQUISITION_DATE
+  path <- m.data$PATH_ROW[1]
+  row <- m.data$PATH_ROW[2]
+  doy <- as.numeric(strftime(acq.date, format='%j'))
+  all.tc <- merge(x=g.ness, y=w.ness, by=c('ID','cells'))
+  all.tc <- merge(x=all.tc, y=b.ness, by=c('ID','cells'))
+  all.tc$acq.date <- acq.date
+  all.tc$doy <- doy
+  all.tc$scene.id <- scene.id
+  all.tc$path <- path
+  all.tc$row <- row
+  all.tc$nrows <- ls5.tc.cor$brightness@nrows
+  all.tc$ncols <- ls5.tc.cor$brightness@ncols
+
+  ## -- write to a file continuously to free up memory
+  write.table(all.tc, file=paste0('../C2L2_tc_output_tables/C2L2_',tc.fn,'.csv'), quote=FALSE, append=TRUE,
+              row.names=FALSE, sep=',', col.names=!file.exists(paste0('../C2L2_tc_output_tables/C2L2_',tc.fn,'.csv')))
+
+  ## get cell number for each mound and save scene information
+  mnd.cell.dat <- cbind(mnd.cells, (cellFromXY(ls5.tc.cor, mnd.locs)))
+  colnames(mnd.cell.dat)[3] <- 'cell.num'
+  mnd.cell.dat$acq.date <- acq.date
+  mnd.cell.dat$doy <- doy
+  mnd.cell.dat$scene.id <- scene.id
+  mnd.cell.dat$path <- path
+  mnd.cell.dat$row <- row
+
+  ## -- write to a file continuously to free up memory
+  write.table(mnd.cell.dat, paste0('../C2L2_tc_output_tables/C2L2_',mc.fn,'.csv'), quote=FALSE, append=TRUE,
+              row.names=FALSE, sep=',', col.names=!file.exists(paste0('../C2L2_tc_output_tables/C2L2_',mc.fn,'.csv')))
     
-    ## if cloud cover is <1%, proceed with processing
-    if(qa.freq/n.cells > 0.99){
-      ## read in metadata for original scene
-      d <- gsub('_CROPPED.grd', '', files[i])
-      setwd(paste0('/Volumes/avril_data/krat_remote_sensing/C2L2_raw_landsat45tm_scene_downloads/',d,'/'))
-      md.file <- list.files(pattern=glob2rx('*MTL.txt'), full.names=TRUE)
-      m.data <- c2l2readMeta(md.file)
-      setwd('/Users/Avril/Documents/krat_remote_sensing/C2L2_cropped_landsat45tm_scenes/')
-      
-      ## no corrections needed because C2L2 data are already in surface reflectance -- 
-      ## can directly apply TC transformation
-      
-      ## manually select the Landsat5TM bands you need for Tasseled Cap (1,2,3,4,5,7)
-      tc.cor.stack <- raster::subset(msk.ls5.stack, subset=c('B1_sr','B2_sr','B3_sr','B4_sr','B5_sr','B7_sr'))
-      ## apply the Tasseled Cap transformation
-      ls5.tc.cor <- tasseledCap(tc.cor.stack, sat='Landsat5TM')
-      # par(mar=c(5.1,4.1,4.1,2.1))
-      # plot(ls5.tc.cor$greenness, xlab='UTM westing coordinate (m)', ylab='UTM northing coordinate (m)', bty='n', main=paste0(files[i],'\ngreenness'))
-      #   points(mnd.locs, pch=19, cex=0.2)
-      # plot(ls5.tc.cor$brightness, xlab='UTM westing coordinate (m)', ylab='UTM northing coordinate (m)', bty='n', main=paste0(files[i],'\nbrightness'))
-      #   points(mnd.locs, pch=19, cex=0.2)
-      # plot(ls5.tc.cor$wetness, xlab='UTM westing coordinate (m)', ylab='UTM northing coordinate (m)', bty='n', main=paste0(files[i],'\nwetness'))
-      #   points(mnd.locs, pch=19, cex=0.2)
-      
-      ## extract TC pixel data for mounds & surrounding pixels
-      ## for pixel mound is located in (buffer = ## meters);
-      ## median dispersal distances from birth to reproductive mound = 77.5 m (females) and 40 m (males)
-      g.ness <- extract(ls5.tc.cor$greenness, mnd.locs, method='simple', df=TRUE, cellnumbers=TRUE, buffer=78)
-      w.ness <- extract(ls5.tc.cor$wetness, mnd.locs, method='simple', df=TRUE, cellnumbers=TRUE, buffer=78)
-      b.ness <- extract(ls5.tc.cor$brightness, mnd.locs, method='simple', df=TRUE, cellnumbers=TRUE, buffer=78)
-      ## check TC output, just to be safe
-      stopifnot(all(g.ness[,c(1,2)] == w.ness[,c(1,2)]), all(g.ness[,c(1,2)] == b.ness[,c(1,2)]))
-      
-      ## plot what this buffer would extract
-      # plot(ls5.tc.cor$greenness, xlab='UTM westing coordinate (m)', ylab='UTM northing coordinate (m)', bty='n',
-      #      xlim=c(lo.x, hi.x), ylim=c(lo.y, hi.y), main='Buffer extracted\n(greenness values)')
-      #   points(mnd.locs, pch=19, cex=0.2)
-      #   r2 <- ls5.tc.cor$greenness
-      #   r2[setdiff(seq_len(ncell(r2)), unique(g.ness[,2]))] <- NA
-      #   r2[!is.na(r2)] <- 1
-      #   plot(rasterToPolygons(r2, dissolve=TRUE), add=TRUE, border='red', lwd=2)
-      ## maybe save data for focal pixels, then figure out which pixels are in the buffer zone, and save values for those,
-      ## with key linking cell numbers in buffer zone to corresponding focal pixels?
-    
-      ## define data to be saved and format for writing output
-      scene.id <- m.data$SCENE_ID
-      acq.date <- m.data$ACQUISITION_DATE
-      path <- m.data$PATH_ROW[1]
-      row <- m.data$PATH_ROW[2]
-      doy <- as.numeric(strftime(acq.date, format='%j'))
-      all.tc <- merge(x=g.ness, y=w.ness, by=c('ID','cells'))
-      all.tc <- merge(x=all.tc, y=b.ness, by=c('ID','cells'))
-      all.tc$acq.date <- acq.date
-      all.tc$doy <- doy
-      all.tc$scene.id <- scene.id
-      all.tc$path <- path
-      all.tc$row <- row
-      all.tc$nrows <- ls5.tc.cor$brightness@nrows
-      all.tc$ncols <- ls5.tc.cor$brightness@ncols
-  
-      ## -- write to a file continuously to free up memory
-      write.table(all.tc, file=paste0('../C2L2_tc_output_tables/C2L2_',tc.fn,'.csv'), quote=FALSE, append=TRUE,
-                  row.names=FALSE, sep=',', col.names=!file.exists(paste0('../C2L2_tc_output_tables/C2L2_',tc.fn,'.csv')))
-  
-      ## get cell number for each mound and save scene information
-      mnd.cell.dat <- cbind(mnd.cells, (cellFromXY(ls5.tc.cor, mnd.locs)))
-      colnames(mnd.cell.dat)[3] <- 'cell.num'
-      mnd.cell.dat$acq.date <- acq.date
-      mnd.cell.dat$doy <- doy
-      mnd.cell.dat$scene.id <- scene.id
-      mnd.cell.dat$path <- path
-      mnd.cell.dat$row <- row
-  
-      ## -- write to a file continuously to free up memory
-      write.table(mnd.cell.dat, paste0('../C2L2_tc_output_tables/C2L2_',mc.fn,'.csv'), quote=FALSE, append=TRUE,
-                  row.names=FALSE, sep=',', col.names=!file.exists(paste0('../C2L2_tc_output_tables/C2L2_',mc.fn,'.csv')))
-    }
-  }
   print(i/length(files))
 }
 dev.off()
 
-## plot scenes with problematic cloud cover, according to QA band
-pdf('/Users/Avril/Desktop/cloud_qa_fails.pdf', width=8, height=8)
-for(j in HI.COV){
-  ls5.stack <- brick(paste0(j,'_CROPPED.grd'))
-  raster::plotRGB(ls5.stack, r=3, g=2, b=1, scale=ls5.stack@data@max[c(3,2,1)])
-    graphics::text(x=lo.x, y=hi.y, labels=paste0('pre-mask - FAIL\n',files[i]), col='yellow', adj=c(0,1))
-  plot(ls5.stack$CLOUD.QA_sr)
-    graphics::text(x=lo.x, y=hi.y, labels=paste0('QA cloud result - FAIL\n',files[i]), col='black', adj=c(0,1))
-}
-dev.off()
-#
-
-##### *3. Need to manually review both PDFs (cloud_qa_fails.pdf and test.pdf) to make sure that QA didn't misclassify images #####
+##### *3. Need to manually review test.pdf for cloud cover #####
+## (empty plots represent bricks that could not be plotted due to plotRGB scaling issue) ##
 
 ##### Do some data viz for current run #####
 setwd('/Volumes/avril_data/krat_remote_sensing/tc_output_tables/')
