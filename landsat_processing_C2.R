@@ -125,10 +125,12 @@ for(i in 1:length(files)){
   
   ## extract TC pixel data for mounds & surrounding pixels
   ## for pixel mound is located in (buffer = ## meters);
+  ## set buffer size
+  b <- 78
   ## median dispersal distances from birth to reproductive mound = 77.5 m (females) and 40 m (males)
-  g.ness <- extract(ls5.tc.cor$greenness, mnd.locs, method='simple', df=TRUE, cellnumbers=TRUE, buffer=78)
-  w.ness <- extract(ls5.tc.cor$wetness, mnd.locs, method='simple', df=TRUE, cellnumbers=TRUE, buffer=78)
-  b.ness <- extract(ls5.tc.cor$brightness, mnd.locs, method='simple', df=TRUE, cellnumbers=TRUE, buffer=78)
+  g.ness <- extract(ls5.tc.cor$greenness, mnd.locs, method='simple', df=TRUE, cellnumbers=TRUE, buffer=b)
+  w.ness <- extract(ls5.tc.cor$wetness, mnd.locs, method='simple', df=TRUE, cellnumbers=TRUE, buffer=b)
+  b.ness <- extract(ls5.tc.cor$brightness, mnd.locs, method='simple', df=TRUE, cellnumbers=TRUE, buffer=b)
   ## check TC output, just to be safe
   stopifnot(all(g.ness[,c(1,2)] == w.ness[,c(1,2)]), all(g.ness[,c(1,2)] == b.ness[,c(1,2)]))
   
@@ -142,6 +144,13 @@ for(i in 1:length(files)){
   #   plot(rasterToPolygons(r2, dissolve=TRUE), add=TRUE, border='red', lwd=2)
   ## maybe save data for focal pixels, then figure out which pixels are in the buffer zone, and save values for those,
   ## with key linking cell numbers in buffer zone to corresponding focal pixels?
+  
+  ## calculate other spectral indices
+  oth.ind <- spectralIndices(ls5.stack, blue='B1_sr', green='B2_sr', red='B3_sr', nir='B4_sr', indices=c('NDVI', 'SAVI', 'MSAVI', 'NDWI'))
+  ndvi <- extract(oth.ind$NDVI, mnd.locs, method='simple', df=TRUE, cellnumbers=TRUE, buffer=b)
+  savi <- extract(oth.ind$SAVI, mnd.locs, method='simple', df=TRUE, cellnumbers=TRUE, buffer=b)
+  msavi <- extract(oth.ind$MSAVI, mnd.locs, method='simple', df=TRUE, cellnumbers=TRUE, buffer=b)
+  ndwi <- extract(oth.ind$NDWI, mnd.locs, method='simple', df=TRUE, cellnumbers=TRUE, buffer=b)
 
   ## define data to be saved and format for writing output
   scene.id <- m.data$SCENE_ID
@@ -152,6 +161,10 @@ for(i in 1:length(files)){
   doy <- as.numeric(strftime(acq.date, format='%j'))
   all.tc <- merge(x=g.ness, y=w.ness, by=c('ID','cells'))
   all.tc <- merge(x=all.tc, y=b.ness, by=c('ID','cells'))
+  all.tc <- merge(x=all.tc, y=ndvi, by=c('ID','cells'))
+  all.tc <- merge(x=all.tc, y=savi, by=c('ID','cells'))
+  all.tc <- merge(x=all.tc, y=msavi, by=c('ID','cells'))
+  all.tc <- merge(x=all.tc, y=ndwi, by=c('ID','cells'))
   all.tc$acq.date <- acq.date
   all.tc$doy <- doy
   all.tc$scene.id <- scene.id
@@ -252,7 +265,7 @@ for(i in 1:length(unique(temp$year))){
   lines(x=sub$doy, y=sub$greenness, col=cols[i])
 }
 
-## compare values with old C1 TC values
+## compare C2L2 values with old C1L1 TC values
 old.dat.tc <- read.csv('/Users/Avril/Documents/krat_remote_sensing/archive/all_C1L1_data_and_output/C1L1_tc_output_tables/tc_cloud_free.csv')
 old.dat.tc <- old.dat.tc[which(old.dat.tc$scene.id %in% tc.dat$scene.id),]
 pdf('/Users/Avril/Desktop/C1L1_v_C2L2_greenness.pdf', width=7, height=7)
