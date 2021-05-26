@@ -238,6 +238,12 @@ temp$year <- as.numeric(do.call(rbind, strsplit(as.character(temp$acq.date), spl
 plot(temp$doy, temp$greenness, pch=19, col=temp$year, cex=0.8)
 plot(temp$doy, temp$wetness, pch=19, col=temp$year, cex=0.8)
 plot(temp$doy, temp$brightness, pch=19, col=temp$year, cex=0.8)
+## and other indices
+plot(temp$doy, temp$NDVI, pch=19, col=temp$year, cex=0.8)
+plot(temp$doy, temp$SAVI, pch=19, col=temp$year, cex=0.8)
+plot(temp$doy, temp$MSAVI, pch=19, col=temp$year, cex=0.8)
+plot(temp$doy, temp$NDWI, pch=19, col=temp$year, cex=0.8)
+
 ## compare with another cell
 temp1 <- tc.dat[which(tc.dat$cells == unique(tc.dat$cell)[300]),]
 temp1$year <- as.numeric(do.call(rbind, strsplit(as.character(temp1$acq.date), split='-', fixed=TRUE))[,1])
@@ -264,6 +270,11 @@ for(i in 1:length(unique(temp$year))){
   sub <- sub[order(sub$doy),]
   lines(x=sub$doy, y=sub$greenness, col=cols[i])
 }
+
+## look for correlations among TC metrics and other indices
+pdf('/Users/Avril/Desktop/single_scene_index_correlations.pdf', width=15, height=15)
+pairs(temp[,c(3:9)], col=alpha('dodgerblue3', 0.5))
+dev.off()
 
 ## compare C2L2 values with old C1L1 TC values
 old.dat.tc <- read.csv('/Users/Avril/Documents/krat_remote_sensing/archive/all_C1L1_data_and_output/C1L1_tc_output_tables/tc_cloud_free.csv')
