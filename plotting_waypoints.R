@@ -37,6 +37,8 @@ lo.y <- 3497000
 hi.y <- 3499750
 ## make extent object
 ext <- extent(lo.x, hi.x, lo.y, hi.y)
+## crop image to extent
+ls5_stack <- crop(ls5_stack, ext)
 ## get a natural color image at 30-m resolution
 raster::plotRGB(ls5_stack, r=3,g=2,b=1, ext=ext)
 par(mar=c(5.1,4.1,4.1,2.1), mgp=c(3,1,0))
@@ -104,6 +106,17 @@ raster::plotRGB(ls5_stack, r=3,g=2,b=1, ext=ext)
   points(gps.pts.plot, pch=19, cex=2, col='yellow')
   text(gps.pts.plot, labels=gps.pts.plot$terr, col='white', adj=c(0,1.8)) ## useful when plotting large file (200 x 200)
   text(lo.x, hi.y, labels='All mounds with GPS locations', adj=c(0,1), col='yellow', cex=1.5)
+dev.off()
+## plot with cell numbers to assign mounds without GPS coordinates to cells (added 7/12/21)
+temp.layer <- ls5_stack$LE07_L1TP_035038_20020817_20160928_01_T1_B1
+temp.layer <- setValues(temp.layer, 1:ncell(temp.layer))
+pdf('/Users/Avril/Desktop/gps_locs_LARGE.pdf', width=200, height=200)
+par(mar=c(3.1,2.1,2.1,1.1), mgp=c(1.5,.75,0))
+raster::plotRGB(ls5_stack, r=3,g=2,b=1, ext=ext)
+  points(gps.pts.plot, pch=19, cex=2, col='yellow')
+  text(gps.pts.plot, labels=gps.pts.plot$terr, col='white', adj=c(0,1.8)) ## useful when plotting large file (200 x 200)
+  text(lo.x, hi.y, labels='All mounds with GPS locations', adj=c(0,1), col='yellow', cex=1.5)
+  text(temp.layer)
 dev.off()
   
 ## read in individual krat data to ID mounds of interest
@@ -543,6 +556,26 @@ plot(c(0, int.locs$long), c(0, int.locs$lat), pch=19, cex=0.5, col='transparent'
          pch=21, col='black', bg='yellow', cex=1) ## points without GPS information
   points(int.locs[int.locs$terr=='R2', 'long'], int.locs[int.locs$terr=='R2', 'lat'],
          pch=21, col='black', bg='green', cex=1) ## all points labeled 'R2' in database 
+  legend('bottomright', legend=c('reference point','GPS marked (n=188)','unmarked (n=20)','R2 in database (n=6)'), pt.cex=c(1,0.5,1,1),
+         col=c('springgreen4','blue4','black','black'), pt.bg=c(NA,NA,'yellow','green'), pch=c(13,19,21,21), inset=c(0.025,0.025))
+dev.off()
+
+pdf('/Users/Avril/Desktop/mound_GPS_avail_info_LARGE.pdf', width=200, height=200)
+par(mar=c(5.1,4.1,4.1,2.1), mgp=c(3,1,0))
+plot(c(0, int.locs$long), c(0, int.locs$lat), pch=19, cex=0.5, col='transparent',
+     xlab='Database long position (m)', ylab='Database lat position (m)')
+  points(0, 0, pch=13, cex=5, col='springgreen4')
+  points(int.locs, pch=19, col='blue4', cex=5) ## all points
+  
+  points(int.locs[int.locs$terr %in% unmarked, 'long'], int.locs[int.locs$terr %in% unmarked, 'lat'],
+         pch=21, col='black', bg='yellow', cex=5) ## points without GPS information
+  points(int.locs[int.locs$terr=='R2', 'long'], int.locs[int.locs$terr=='R2', 'lat'],
+         pch=21, col='black', bg='green', cex=5) ## all points labeled 'R2' in database 
+  ## label non-R2 mounds
+  text(int.locs[int.locs$terr!='R2', 'long'], int.locs[int.locs$terr!='R2', 'lat'], labels=int.locs[int.locs$terr!='R2', 'terr'], adj=c(0,3))
+  ## label R2 mounds with their database coordinates so they can be renamed and geo-matched
+  text(int.locs[int.locs$terr=='R2', 'long'], int.locs[int.locs$terr=='R2', 'lat'], 
+       labels=paste0(int.locs[int.locs$terr=='R2', 'terr'],'\n(',int.locs[int.locs$terr=='R2', 'long'],', ',int.locs[int.locs$terr=='R2', 'lat'],')'), adj=c(0,3))
   legend('bottomright', legend=c('reference point','GPS marked (n=188)','unmarked (n=20)','R2 in database (n=6)'), pt.cex=c(1,0.5,1,1),
          col=c('springgreen4','blue4','black','black'), pt.bg=c(NA,NA,'yellow','green'), pch=c(13,19,21,21), inset=c(0.025,0.025))
 dev.off()
