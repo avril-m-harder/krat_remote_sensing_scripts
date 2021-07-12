@@ -30,11 +30,11 @@ ls5_stack <- stack(crit_bands)
 # ls5_brick <- brick(ls5_stack)
 
 #### plot site
-## set coordinates
-lo.x <- 663750-1000
-hi.x <- 665100+1000
-lo.y <- 3497800-500
-hi.y <- 3499400+500
+## set extent variables
+lo.x <- 663500
+hi.x <- 665600
+lo.y <- 3497000
+hi.y <- 3499750
 ## make extent object
 ext <- extent(lo.x, hi.x, lo.y, hi.y)
 ## get a natural color image at 30-m resolution
@@ -98,16 +98,16 @@ coordinates(gps.pts.plot) <- c('long','lat') ## converts to SpatialPointsDataFra
 proj4string(gps.pts.plot) <- CRS("+proj=longlat +datum=WGS84") 
 gps.pts.plot <- spTransform(gps.pts.plot, CRS("+proj=utm +zone=12 +ellps=WGS84 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs"))
 ## plot all known waypoints
-# pdf('/Users/Avril/Desktop/gps_locs_LARGE.pdf', width=200, height=200)
+pdf('/Users/Avril/Desktop/gps_locs_LARGE.pdf', width=200, height=200)
 par(mar=c(3.1,2.1,2.1,1.1), mgp=c(1.5,.75,0))
 raster::plotRGB(ls5_stack, r=3,g=2,b=1, ext=ext)
   points(gps.pts.plot, pch=19, cex=2, col='yellow')
   text(gps.pts.plot, labels=gps.pts.plot$terr, col='white', adj=c(0,1.8)) ## useful when plotting large file (200 x 200)
   text(lo.x, hi.y, labels='All mounds with GPS locations', adj=c(0,1), col='yellow', cex=1.5)
-# dev.off()
+dev.off()
   
 ## read in individual krat data to ID mounds of interest
-krats <- read.csv('/Users/Avril/Documents/krats/krat_data/summary_allstats2_withgen_zeroes.csv')
+krats <- read.csv('/Users/Avril/Documents/krats/krat_data_and_paper2/summary_allstats2_withgen_zeroes.csv')
 ## latest year to examine would be 2005 (data run through 2007, so 2005 would catch MOST offspring of examined indivs)
 krats <- krats[krats$birthyear <= 2005,]
 # krats <- krats[krats$genback > 3,]
@@ -130,7 +130,7 @@ raster::plotRGB(ls5_stack, r=3,g=2,b=1, ext=ext)
 
 ##### 3. Dealing with database location measurements #####
 ##### 3A. Plot database meter values #####
-mnd.locs <- read.csv('/Users/Avril/Documents/krats/krat_data/KRATP.csv')
+mnd.locs <- read.csv('/Users/Avril/Documents/krats/krat_data_and_paper2/KRATP.csv')
 mnd.locs <- mnd.locs[,c('lat','long','terr')] ## only keep mound location information
 mnd.locs <- mnd.locs[!duplicated(mnd.locs),] ## keep unique rows only
 colnames(mnd.locs) <- c('long','lat','terr') ## lat/long column headings reversed in original file
@@ -340,10 +340,10 @@ rm(unmarked) ## get rid of original list of 'unmarked' mounds - now separated in
 
 ##### 4A. Make some plots for each unmarked mound to line it up with its potential GPS matches #####
 ## set coordinates
-lo.x <- 663750-200
-hi.x <- 665100+500
-lo.y <- 3497800
-hi.y <- 3499400+200
+lo.x <- 663500
+hi.x <- 665600
+lo.y <- 3497000
+hi.y <- 3499750
 ## make extent object
 ext <- extent(lo.x, hi.x, lo.y, hi.y)
 # pdf('/Users/Avril/Desktop/comparisons.pdf', width=12, height=6)
@@ -371,7 +371,7 @@ ext <- extent(lo.x, hi.x, lo.y, hi.y)
 #### recorded in list_of_confirmed_grep_matches.csv
 
 ## read in list of manually verified mound locations and matches
-chkd.locs <- read.csv('./sorting_out_mound_names/list_of_confirmed_grep_matches.csv') ## 109 mounds successfully matched after visual inspection
+chkd.locs <- read.csv('/Users/Avril/Documents/krat_remote_sensing/archive/sorting_out_mound_names/list_of_confirmed_grep_matches.csv') ## 109 mounds successfully matched after visual inspection
 ## combine with previously linked waypoint and database points
 chkd.pts <- gps.pts[gps.pts$terr %in% int.locs$terr,] ## narrow down to mounds of interest
 colnames(chkd.pts)[3] <- 'waypoint.name'
