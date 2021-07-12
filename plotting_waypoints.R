@@ -580,6 +580,10 @@ plot(c(0, int.locs$long), c(0, int.locs$lat), pch=19, cex=0.5, col='transparent'
          col=c('springgreen4','blue4','black','black'), pt.bg=c(NA,NA,'yellow','green'), pch=c(13,19,21,21), inset=c(0.025,0.025))
 dev.off()
 
+## write table of un-GPS-marked mounds + R2 mounds for manual assignment to cell #s
+temp <- rbind(int.locs[int.locs$terr %in% unmarked,], int.locs[int.locs$terr=='R2',])
+write.csv(temp, '/Users/Avril/Desktop/mounds_to_be_assigned.csv', row.names=FALSE)
+
 ##### 5. Plot mounds with known GPS coords over high-res imagery #####
 ## read in mound waypoints
 mnd.locs <- read.csv('/Users/Avril/Documents/krat_remote_sensing/intermediate_data/mound_GPS_coords_n188.csv')
