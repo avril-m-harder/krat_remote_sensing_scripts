@@ -397,7 +397,7 @@ unmapped <- c(unmarked, as.character(unique(OUT$i)))
 
 ##### 4B. Deal with unmatched/unmarked database points #####
 ## plot their locations first - compare this large plot to the GPS-based one produced at line 101
-# pdf('/Users/Avril/Desktop/database_locations_LARGE.pdf', width=200, height=200)
+pdf('/Users/Avril/Desktop/database_locations_LARGE.pdf', width=200, height=200)
 par(mar=c(5.1,4.1,4.1,2.1), mgp=c(3,1,0))
 plot(c(0, mnd.locs$long), c(0, mnd.locs$lat), pch=19, cex=0.5, col='blue', main='Mounds of interest',
      xlab='Database long position (m)', ylab='Database lat position (m)')
@@ -417,7 +417,7 @@ plot(c(0, mnd.locs$long), c(0, mnd.locs$lat), pch=19, cex=0.5, col='blue', main=
          labels=int.locs[int.locs$terr=='R2', 'terr'], col='white', adj=c(0,3)) 
   legend('bottomright', legend=c('reference point','with GPS info','without GPS info'), box.col='white',
          col=c('springgreen','blue','lavender'), pch=c(13,19,19), bg='#424148', text.col='white')
-# dev.off()
+dev.off()
 ## something weird going on with mounds just labeled "R2" in database -- mark those points
 par(mar=c(5.1,4.1,4.1,2.1), mgp=c(3,1,0))
 plot(c(0, int.locs$long), c(0, int.locs$lat), pch=19, cex=0.5, col='blue', main='Mounds of interest',
