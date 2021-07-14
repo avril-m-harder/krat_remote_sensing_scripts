@@ -6,3 +6,4 @@
 - c2l2_ls5_scenes_avail.R: examines and summarizes information about the C2L2 scenes available for the study site from Jan. 1 1989 - Dec. 31 2005
 - landsat_processing_C2.R: crops files to extent of study site, processes surface reflectance data (Tasseled Cap transformation, others?), and writes transformation/index output for statistical analysis
 - c2l2readMeta.R: an updated version of the RStoolbox function *readMeta()* that is compatible with Collection 2 Level 2 metadata files (*_MTL.txt)
+- env_x_fitness.R: exploring relationships between TC data and krat fitness
