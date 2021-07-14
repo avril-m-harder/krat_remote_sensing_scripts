@@ -20,6 +20,17 @@ source('/Users/Avril/Documents/krat_remote_sensing/krat_remote_sensing_scripts/c
 
 ##### Read in population (Peter's) data #####
 pop.dat <- read.csv('/Users/Avril/Documents/krat_genetics/preseq_sample_information/KRATP.csv')
+## lat/long headings reversed in original file
+colnames(pop.dat)[7:8] <- c('long','lat')
+
+##### Read in manual mound:cell assignments #####
+### >> also needed to re-name unique mounds that were all labeled 'R2' in the original database 
+man.ass <- read.csv('/Users/Avril/Documents/krat_remote_sensing/archive/sorting_out_mound_names/manual_mound_cell_assignments.csv')
+## rename 'R2' mounds to match their actual locations (unique names R2.1-R2.6)
+r2 <- man.ass[man.ass$terr=='R2',]
+for(i in 1:nrow(r2)){
+  pop.dat[which(pop.dat$lat == r2$lat[i] & pop.dat$long == r2$long[i]), 'terr'] <- r2$new.db.name[i]
+}
 
 ##### Read in TC and other index results #####
 ## set file names to be read in 

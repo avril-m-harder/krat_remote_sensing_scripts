@@ -13,22 +13,63 @@ library(TeachingDemos)
 source('/Users/Avril/Documents/krat_remote_sensing/krat_remote_sensing_scripts/c2l2readMeta.R')
 `%notin%` <- Negate(`%in%`)
 
-##### 1. Read in mound waypoints for later extraction #####
+##### 1. Read in mound waypoints for later extraction + manual assignments #####
 mnd.locs <- read.csv('/Users/Avril/Documents/krat_remote_sensing/intermediate_data/mound_GPS_coords_n188.csv')
 mnd.locs$ID <- 1:nrow(mnd.locs) ## add column for later matching up with TC extracted pixel values
 mnd.cells <- mnd.locs[,c(4,5)] ## save ID and db.name for saving cell names later
+mnd.locs <- mnd.locs[c('long','lat','database.name')] ## rearrange/rename to match man.locs below
+colnames(mnd.locs)[3] <- 'terr'
 coordinates(mnd.locs) <- c('long','lat') ## converts to SpatialPointsDataFrame object for plotting
-proj4string(mnd.locs) <- CRS("+proj=longlat +datum=WGS84")
-mnd.locs <- sp::spTransform(mnd.locs, CRS("+proj=utm +zone=12 +ellps=WGS84 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs"))
+proj4string(mnd.locs) <- CRS("+proj=longlat +datum=WGS84") ## still in degrees
+mnd.locs <- sp::spTransform(mnd.locs, CRS("+proj=utm +zone=12 +ellps=WGS84 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs")) ## now in meters
 
-#
+### manual mound:cell assignments
+man.ass <- read.csv('/Users/Avril/Documents/krat_remote_sensing/archive/sorting_out_mound_names/manual_mound_cell_assignments.csv')
+man.cells <- man.ass[,c('terr','new.db.name','cell')]
+man.cells[!is.na(man.cells$new.db.name), 'terr'] <- man.cells[!is.na(man.cells$new.db.name), 'new.db.name']
+man.cells$ID <- c((max(mnd.cells$ID)+1):(max(mnd.cells$ID)+nrow(man.cells)))
+colnames(man.cells)[1] <- 'database.name'
+man.cells <- man.cells[,c('database.name','ID')]
+
+## read in an example raster to get coordinates
+setwd('/Users/Avril/Documents/krat_remote_sensing/archive/proposal_sat_map_stuff/LE07_L1TP_035038_20020817_20160928_01_T1/')
+all_landsat_bands <- list.files(pattern = glob2rx("*TIF$"),
+                                full.names = TRUE)
+crit_bands <- all_landsat_bands[c(1:5,7)]
+ls5_stack <- stack(crit_bands)
+## set extent for all analyses + crop 
+lo.x <- 663500
+hi.x <- 665600
+lo.y <- 3497000
+hi.y <- 3499750
+ext <- extent(lo.x, hi.x, lo.y, hi.y)
+ls5_stack <- crop(ls5_stack, ext)
+man.locs <- as.data.frame(xyFromCell(ls5_stack, man.ass$cell))
+man.locs$terr <- man.ass$terr
+coordinates(man.locs) <- c('x','y') ## already in meters
+proj4string(man.locs)<- CRS("+proj=utm +zone=12 +ellps=WGS84 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs")
+
+## confirm proper coordinate loading for both sets -- checks out
+raster::plotRGB(ls5_stack, r=3,g=2,b=1, ext=ext)
+  points(mnd.locs, cex=0.5, col='yellow', pch=19)
+  points(man.locs, cex=0.5, col='green', pch=19)
+
+## combine two sets of points, plot to confirm
+all.cells <- rbind(mnd.cells, man.cells)
+all.locs <- rbind(mnd.locs, man.locs)
+raster::plotRGB(ls5_stack, r=3,g=2,b=1, ext=ext)
+  points(all.locs, cex=0.5, col='blue', pch=19) ## looks good
+  
+rm(ext, all_landsat_bands, crit_bands, 
+   ls5_stack, mnd.locs, man.locs, man.ass, mnd.cells, man.cells) ## cleanup before looping
+
 # ##### 2. Loop over directories of raw data and write cropped raster files (output already saved) #####
 # ### Only need to run this loop once ###
 # ## loop over downloads in scratch space (n=647)
 # setwd('/Volumes/avril_data/krat_remote_sensing/C2L2_raw_landsat45tm_scene_downloads/')
 # dirs <- list.files()
 # 
-# ## set extent for all analyses
+## set extent for all analyses
 # lo.x <- 663500
 # hi.x <- 665600
 # lo.y <- 3497000
@@ -73,12 +114,6 @@ mnd.locs <- sp::spTransform(mnd.locs, CRS("+proj=utm +zone=12 +ellps=WGS84 +towg
 tc.fn <- 'tc_cloud_free' ## for TC data -- tc_initial_test    tc_cloud_free
 mc.fn <- 'mnd_key_cloud_free' ## for mound/cell ID key -- mnd_key_initial_test    mnd_key_cloud_free
 
-## set extent variables
-lo.x <- 663500
-hi.x <- 665600
-lo.y <- 3497000
-hi.y <- 3499750
-
 # setwd('/Volumes/avril_data/krat_remote_sensing/cropped_landsat45tm_scenes/')
 setwd('/Users/Avril/Documents/krat_remote_sensing/C2L2_cropped_landsat45tm_scenes/')
 # files <- list.files(pattern="*.grd") ## to run with ALL scenes (causes some issues due to cloud masking step)
@@ -87,115 +122,115 @@ files <- read.table('/Users/Avril/Documents/krat_remote_sensing/C2L2_landsat_5_d
 files$V1 <- paste0(files$V1,'_CROPPED.grd')
 files <- as.vector(files$V1)
 
-# pdf(file='/Users/Avril/Desktop/test_cloud_free.pdf', width=8, height=8)
-# par(mar=c(3.1,2.1,2.1,1.1), mgp=c(1.5,.75,0))
-# 
-# OUT <- NULL
-# 
-# for(i in 1:length(files)){
-#   ls5.stack <- brick(files[i])
-#   plot.new()
-#   try(raster::plotRGB(ls5.stack, r=3, g=2, b=1, scale=ls5.stack@data@max[c(3,2,1)]), silent=TRUE)
-#   # try(raster::plotRGB(ls5.stack, r=3, g=2, b=1), silent=FALSE)
-#     graphics::legend('topleft', paste0(i,' - ',files[i]), bty='n', text.col='darkgreen')
-#   
-#   ## masking clouds using CLOUD_QA or QA band isn't very accurate;
-#   ## just manually review plots to check for cloud cover
-#   scene <- gsub('_CROPPED.grd', '', files[i])
-#   ## read in metadata for original scene
-#   d <- gsub('_CROPPED.grd', '', files[i])
-#   setwd(paste0('/Volumes/avril_data/krat_remote_sensing/C2L2_raw_landsat45tm_scene_downloads/',d,'/'))
-#   md.file <- list.files(pattern=glob2rx('*MTL.txt'), full.names=TRUE)
-#   m.data <- c2l2readMeta(md.file)
-#   setwd('/Users/Avril/Documents/krat_remote_sensing/C2L2_cropped_landsat45tm_scenes/')
-#   
-#   ## no corrections needed because C2L2 data are already in surface reflectance -- 
-#   ## can directly apply TC transformation
-#   
-#   ## manually select the Landsat5TM bands you need for Tasseled Cap (1,2,3,4,5,7)
-#   tc.cor.stack <- raster::subset(ls5.stack, subset=c('B1_sr','B2_sr','B3_sr','B4_sr','B5_sr','B7_sr'))
-#   ## apply the Tasseled Cap transformation
-#   ls5.tc.cor <- tasseledCap(tc.cor.stack, sat='Landsat5TM')
-#   # par(mar=c(5.1,4.1,4.1,2.1))
-#   # plot(ls5.tc.cor$greenness, xlab='UTM westing coordinate (m)', ylab='UTM northing coordinate (m)', bty='n', main=paste0(files[i],'\ngreenness'))
-#   #   points(mnd.locs, pch=19, cex=0.2)
-#   # plot(ls5.tc.cor$brightness, xlab='UTM westing coordinate (m)', ylab='UTM northing coordinate (m)', bty='n', main=paste0(files[i],'\nbrightness'))
-#   #   points(mnd.locs, pch=19, cex=0.2)
-#   # plot(ls5.tc.cor$wetness, xlab='UTM westing coordinate (m)', ylab='UTM northing coordinate (m)', bty='n', main=paste0(files[i],'\nwetness'))
-#   #   points(mnd.locs, pch=19, cex=0.2)
-#   
-#   ## extract TC pixel data for mounds & surrounding pixels
-#   ## for pixel mound is located in (buffer = ## meters);
-#   ## set buffer size
-#   b <- 78
-#   ## median dispersal distances from birth to reproductive mound = 77.5 m (females) and 40 m (males)
-#   g.ness <- extract(ls5.tc.cor$greenness, mnd.locs, method='simple', df=TRUE, cellnumbers=TRUE, buffer=b)
-#   w.ness <- extract(ls5.tc.cor$wetness, mnd.locs, method='simple', df=TRUE, cellnumbers=TRUE, buffer=b)
-#   b.ness <- extract(ls5.tc.cor$brightness, mnd.locs, method='simple', df=TRUE, cellnumbers=TRUE, buffer=b)
-#   ## check TC output, just to be safe
-#   stopifnot(all(g.ness[,c(1,2)] == w.ness[,c(1,2)]), all(g.ness[,c(1,2)] == b.ness[,c(1,2)]))
-#   
-#   ## plot what this buffer would extract
-#   # plot(ls5.tc.cor$greenness, xlab='UTM westing coordinate (m)', ylab='UTM northing coordinate (m)', bty='n',
-#   #      xlim=c(lo.x, hi.x), ylim=c(lo.y, hi.y), main='Buffer extracted\n(greenness values)')
-#   #   points(mnd.locs, pch=19, cex=0.2)
-#   #   r2 <- ls5.tc.cor$greenness
-#   #   r2[setdiff(seq_len(ncell(r2)), unique(g.ness[,2]))] <- NA
-#   #   r2[!is.na(r2)] <- 1
-#   #   plot(rasterToPolygons(r2, dissolve=TRUE), add=TRUE, border='red', lwd=2)
-#   ## maybe save data for focal pixels, then figure out which pixels are in the buffer zone, and save values for those,
-#   ## with key linking cell numbers in buffer zone to corresponding focal pixels?
-#   
-#   ## calculate other spectral indices
-#   oth.ind <- spectralIndices(ls5.stack, blue='B1_sr', green='B2_sr', red='B3_sr', nir='B4_sr', indices=c('NDVI', 'SAVI', 'MSAVI', 'NDWI'))
-#   ndvi <- extract(oth.ind$NDVI, mnd.locs, method='simple', df=TRUE, cellnumbers=TRUE, buffer=b)
-#   savi <- extract(oth.ind$SAVI, mnd.locs, method='simple', df=TRUE, cellnumbers=TRUE, buffer=b)
-#   msavi <- extract(oth.ind$MSAVI, mnd.locs, method='simple', df=TRUE, cellnumbers=TRUE, buffer=b)
-#   ndwi <- extract(oth.ind$NDWI, mnd.locs, method='simple', df=TRUE, cellnumbers=TRUE, buffer=b)
-# 
-#   ## define data to be saved and format for writing output
-#   scene.id <- m.data$SCENE_ID
-#   prod.id <- gsub('_CROPPED.grd', '', files[i])
-#   acq.date <- m.data$ACQUISITION_DATE
-#   path <- m.data$PATH_ROW[1]
-#   row <- m.data$PATH_ROW[2]
-#   doy <- as.numeric(strftime(acq.date, format='%j'))
-#   all.tc <- merge(x=g.ness, y=w.ness, by=c('ID','cells'))
-#   all.tc <- merge(x=all.tc, y=b.ness, by=c('ID','cells'))
-#   all.tc <- merge(x=all.tc, y=ndvi, by=c('ID','cells'))
-#   all.tc <- merge(x=all.tc, y=savi, by=c('ID','cells'))
-#   all.tc <- merge(x=all.tc, y=msavi, by=c('ID','cells'))
-#   all.tc <- merge(x=all.tc, y=ndwi, by=c('ID','cells'))
-#   all.tc$acq.date <- acq.date
-#   all.tc$doy <- doy
-#   all.tc$scene.id <- scene.id
-#   all.tc$prod.id <- prod.id
-#   all.tc$path <- path
-#   all.tc$row <- row
-#   all.tc$nrows <- ls5.tc.cor$brightness@nrows
-#   all.tc$ncols <- ls5.tc.cor$brightness@ncols
-# 
-#   ## -- write to a file continuously to free up memory
-#   write.table(all.tc, file=paste0('../C2L2_tc_output_tables/C2L2_',tc.fn,'.csv'), quote=FALSE, append=TRUE,
-#               row.names=FALSE, sep=',', col.names=!file.exists(paste0('../C2L2_tc_output_tables/C2L2_',tc.fn,'.csv')))
-# 
-#   ## get cell number for each mound and save scene information
-#   mnd.cell.dat <- cbind(mnd.cells, (cellFromXY(ls5.tc.cor, mnd.locs)))
-#   colnames(mnd.cell.dat)[3] <- 'cell.num'
-#   mnd.cell.dat$acq.date <- acq.date
-#   mnd.cell.dat$doy <- doy
-#   mnd.cell.dat$scene.id <- scene.id
-#   mnd.cell.dat$prod.id <- prod.id
-#   mnd.cell.dat$path <- path
-#   mnd.cell.dat$row <- row
-# 
-#   ## -- write to a file continuously to free up memory
-#   write.table(mnd.cell.dat, paste0('../C2L2_tc_output_tables/C2L2_',mc.fn,'.csv'), quote=FALSE, append=TRUE,
-#               row.names=FALSE, sep=',', col.names=!file.exists(paste0('../C2L2_tc_output_tables/C2L2_',mc.fn,'.csv')))
-#     
-#   print(i/length(files))
-# }
-# dev.off()
+pdf(file='/Users/Avril/Desktop/test_cloud_free.pdf', width=8, height=8)
+par(mar=c(3.1,2.1,2.1,1.1), mgp=c(1.5,.75,0))
+
+OUT <- NULL
+
+for(i in 1:length(files)){
+  ls5.stack <- brick(files[i])
+  plot.new()
+  try(raster::plotRGB(ls5.stack, r=3, g=2, b=1, scale=ls5.stack@data@max[c(3,2,1)]), silent=TRUE)
+  # try(raster::plotRGB(ls5.stack, r=3, g=2, b=1), silent=FALSE)
+    graphics::legend('topleft', paste0(i,' - ',files[i]), bty='n', text.col='darkgreen')
+
+  ## masking clouds using CLOUD_QA or QA band isn't very accurate;
+  ## just manually review plots to check for cloud cover
+  scene <- gsub('_CROPPED.grd', '', files[i])
+  ## read in metadata for original scene
+  d <- gsub('_CROPPED.grd', '', files[i])
+  setwd(paste0('/Volumes/avril_data/krat_remote_sensing/C2L2_raw_landsat45tm_scene_downloads/',d,'/'))
+  md.file <- list.files(pattern=glob2rx('*MTL.txt'), full.names=TRUE)
+  m.data <- c2l2readMeta(md.file)
+  setwd('/Users/Avril/Documents/krat_remote_sensing/C2L2_cropped_landsat45tm_scenes/')
+
+  ## no corrections needed because C2L2 data are already in surface reflectance --
+  ## can directly apply TC transformation
+
+  ## manually select the Landsat5TM bands you need for Tasseled Cap (1,2,3,4,5,7)
+  tc.cor.stack <- raster::subset(ls5.stack, subset=c('B1_sr','B2_sr','B3_sr','B4_sr','B5_sr','B7_sr'))
+  ## apply the Tasseled Cap transformation
+  ls5.tc.cor <- tasseledCap(tc.cor.stack, sat='Landsat5TM')
+  # par(mar=c(5.1,4.1,4.1,2.1))
+  # plot(ls5.tc.cor$greenness, xlab='UTM westing coordinate (m)', ylab='UTM northing coordinate (m)', bty='n', main=paste0(files[i],'\ngreenness'))
+  #   points(all.locs, pch=19, cex=0.2)
+  # plot(ls5.tc.cor$brightness, xlab='UTM westing coordinate (m)', ylab='UTM northing coordinate (m)', bty='n', main=paste0(files[i],'\nbrightness'))
+  #   points(all.locs, pch=19, cex=0.2)
+  # plot(ls5.tc.cor$wetness, xlab='UTM westing coordinate (m)', ylab='UTM northing coordinate (m)', bty='n', main=paste0(files[i],'\nwetness'))
+  #   points(all.locs, pch=19, cex=0.2)
+
+  ## extract TC pixel data for mounds & surrounding pixels
+  ## for pixel mound is located in (buffer = ## meters);
+  ## set buffer size
+  b <- 78
+  # ## median dispersal distances from birth to reproductive mound = 77.5 m (females) and 40 m (males)
+  g.ness <- extract(ls5.tc.cor$greenness, all.locs, method='simple', df=TRUE, cellnumbers=TRUE, buffer=b)
+  w.ness <- extract(ls5.tc.cor$wetness, all.locs, method='simple', df=TRUE, cellnumbers=TRUE, buffer=b)
+  b.ness <- extract(ls5.tc.cor$brightness, all.locs, method='simple', df=TRUE, cellnumbers=TRUE, buffer=b)
+  # ## check TC output, just to be safe
+  # stopifnot(all(g.ness[,c(1,2)] == w.ness[,c(1,2)]), all(g.ness[,c(1,2)] == b.ness[,c(1,2)]))
+
+  ## plot what this buffer would extract
+  # plot(ls5.tc.cor$greenness, xlab='UTM westing coordinate (m)', ylab='UTM northing coordinate (m)', bty='n',
+  #      xlim=c(lo.x, hi.x), ylim=c(lo.y, hi.y), main='Buffer extracted\n(greenness values)')
+  #   points(all.locs, pch=19, cex=0.2)
+  #   r2 <- ls5.tc.cor$greenness
+  #   r2[setdiff(seq_len(ncell(r2)), unique(g.ness[,2]))] <- NA
+  #   r2[!is.na(r2)] <- 1
+  #   plot(rasterToPolygons(r2, dissolve=TRUE), add=TRUE, border='red', lwd=2)
+  ## maybe save data for focal pixels, then figure out which pixels are in the buffer zone, and save values for those,
+  ## with key linking cell numbers in buffer zone to corresponding focal pixels?
+
+  ## calculate other spectral indices
+  oth.ind <- spectralIndices(ls5.stack, blue='B1_sr', green='B2_sr', red='B3_sr', nir='B4_sr', indices=c('NDVI', 'SAVI', 'MSAVI', 'NDWI'))
+  ndvi <- extract(oth.ind$NDVI, all.locs, method='simple', df=TRUE, cellnumbers=TRUE, buffer=b)
+  savi <- extract(oth.ind$SAVI, all.locs, method='simple', df=TRUE, cellnumbers=TRUE, buffer=b)
+  msavi <- extract(oth.ind$MSAVI, all.locs, method='simple', df=TRUE, cellnumbers=TRUE, buffer=b)
+  ndwi <- extract(oth.ind$NDWI, all.locs, method='simple', df=TRUE, cellnumbers=TRUE, buffer=b)
+
+  ## define data to be saved and format for writing output
+  scene.id <- m.data$SCENE_ID
+  prod.id <- gsub('_CROPPED.grd', '', files[i])
+  acq.date <- m.data$ACQUISITION_DATE
+  path <- m.data$PATH_ROW[1]
+  row <- m.data$PATH_ROW[2]
+  doy <- as.numeric(strftime(acq.date, format='%j'))
+  all.tc <- merge(x=g.ness, y=w.ness, by=c('ID','cells'))
+  all.tc <- merge(x=all.tc, y=b.ness, by=c('ID','cells'))
+  all.tc <- merge(x=all.tc, y=ndvi, by=c('ID','cells'))
+  all.tc <- merge(x=all.tc, y=savi, by=c('ID','cells'))
+  all.tc <- merge(x=all.tc, y=msavi, by=c('ID','cells'))
+  all.tc <- merge(x=all.tc, y=ndwi, by=c('ID','cells'))
+  all.tc$acq.date <- acq.date
+  all.tc$doy <- doy
+  all.tc$scene.id <- scene.id
+  all.tc$prod.id <- prod.id
+  all.tc$path <- path
+  all.tc$row <- row
+  all.tc$nrows <- ls5.tc.cor$brightness@nrows
+  all.tc$ncols <- ls5.tc.cor$brightness@ncols
+
+  ## -- write to a file continuously to free up memory
+  write.table(all.tc, file=paste0('../C2L2_tc_output_tables/C2L2_',tc.fn,'.csv'), quote=FALSE, append=TRUE,
+              row.names=FALSE, sep=',', col.names=!file.exists(paste0('../C2L2_tc_output_tables/C2L2_',tc.fn,'.csv')))
+
+  ## get cell number for each mound and save scene information
+  mnd.cell.dat <- cbind(all.cells, (cellFromXY(ls5.tc.cor, all.locs)))
+  colnames(mnd.cell.dat)[3] <- 'cell.num'
+  mnd.cell.dat$acq.date <- acq.date
+  mnd.cell.dat$doy <- doy
+  mnd.cell.dat$scene.id <- scene.id
+  mnd.cell.dat$prod.id <- prod.id
+  mnd.cell.dat$path <- path
+  mnd.cell.dat$row <- row
+
+  ## -- write to a file continuously to free up memory
+  write.table(mnd.cell.dat, paste0('../C2L2_tc_output_tables/C2L2_',mc.fn,'.csv'), quote=FALSE, append=TRUE,
+              row.names=FALSE, sep=',', col.names=!file.exists(paste0('../C2L2_tc_output_tables/C2L2_',mc.fn,'.csv')))
+
+  print(i/length(files))
+}
+dev.off()
 
 ##### *3. Need to manually review test.pdf for cloud cover #####
 ## (empty plots represent bricks that could not be plotted due to plotRGB scaling issue) ##

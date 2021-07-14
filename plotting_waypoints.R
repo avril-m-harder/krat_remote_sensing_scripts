@@ -3,6 +3,7 @@
 # install.packages('RStoolbox')
 # install.packages('TrackReconstruction')
 library(raster)
+library(rgdal)
 library(RStoolbox)
 library(viridis)
 library(sp)
@@ -453,7 +454,7 @@ chkd.pts <- rbind(chkd.pts, save)
 unmarked <- unmarked[-which(unmarked=='SHANGRLA')]
 
 ## write file of matched GPS points
-write.csv(chkd.pts, 'mound_GPS_coords_n188.csv', row.names=FALSE)
+# write.csv(chkd.pts, 'mound_GPS_coords_n188.csv', row.names=FALSE)
 
 # ## next, calculate GPS coordinates for remaining 20 unmarked mounds using 5 nearest GPS coords in chkd.pts as references
 # mkd <- mnd.locs[which(mnd.locs$terr %in% chkd.pts$database.name | mnd.locs$terr %in% unmarked),] ## get database meter coords for all mounds of interest with verified GPS coords and unmarked points of interest
@@ -582,46 +583,35 @@ dev.off()
 
 ## write table of un-GPS-marked mounds + R2 mounds for manual assignment to cell #s
 temp <- rbind(int.locs[int.locs$terr %in% unmarked,], int.locs[int.locs$terr=='R2',])
-write.csv(temp, '/Users/Avril/Desktop/mounds_to_be_assigned.csv', row.names=FALSE)
+# write.csv(temp, '/Users/Avril/Desktop/mounds_to_be_assigned.csv', row.names=FALSE)
+
+# ##### 4E. Read in results of manual mound:cell assignment process to get coordinates for centers of those cells #####
+man.ass <- read.csv('/Users/Avril/Documents/krat_remote_sensing/archive/sorting_out_mound_names/manual_mound_cell_assignments.csv')
+temp.coords <- as.data.frame(xyFromCell(ls5_stack, man.ass$cell))
+temp.coords$terr <- man.ass$terr
+coordinates(temp.coords) <- c('x','y')
+
+raster::plotRGB(ls5_stack, r=3,g=2,b=1, ext=ext)
+points(temp.coords, pch=19, col='green')
+
+pdf('/Users/Avril/Desktop/gps_locs_LARGE_plus_assignments.pdf', width=200, height=200)
+par(mar=c(3.1,2.1,2.1,1.1), mgp=c(1.5,.75,0))
+raster::plotRGB(ls5_stack, r=3,g=2,b=1, ext=ext)
+  points(gps.pts.plot, pch=19, cex=2, col='yellow')
+  text(gps.pts.plot, labels=gps.pts.plot$terr, col='white', adj=c(0,1.8)) ## useful when plotting large file (200 x 200)
+  points(temp.coords, pch=19, col='green', cex=2)
+  text(temp.coords, labels=temp.coords$terr, col='white', adj=c(0,1.8)) ## useful when plotting large file (200 x 200)
+  text(temp.layer) ## add cell numbers to double-check assignments plot correctly
+dev.off()
+
+
+
+gps.pts.plot <- gps.pts ## save as new object prior to format conversions
+coordinates(gps.pts.plot) <- c('long','lat') ## converts to SpatialPointsDataFrame object
+proj4string(gps.pts.plot) <- CRS("+proj=longlat +datum=WGS84")
+gps.pts.plot <- spTransform(gps.pts.plot, CRS("+proj=utm +zone=12 +ellps=WGS84 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs"))
 
 ##### 5. Plot mounds with known GPS coords over high-res imagery #####
 ## read in mound waypoints
-mnd.locs <- read.csv('/Users/Avril/Documents/krat_remote_sensing/intermediate_data/mound_GPS_coords_n188.csv')
-mnd.locs$ID <- 1:nrow(mnd.locs) ## add column for later matching up with TC extracted pixel values
-mnd.cells <- mnd.locs[,c(4,5)] ## save ID and db.name for saving cell names later
-coordinates(mnd.locs) <- c('long','lat') ## converts to SpatialPointsDataFrame object for plotting
-proj4string(mnd.locs) <- CRS("+proj=longlat +datum=WGS84") 
-mnd.locs <- sp::spTransform(mnd.locs, CRS("+proj=utm +zone=12 +ellps=WGS84 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs"))
-
-## import high-res orthoimagery files and whittle down to extent
-setwd('/Users/Avril/Documents/krat_remote_sensing/site_hi_res_orthoimagery/')
-all_oi_files <- list.files(pattern = glob2rx("*tif$"),
-                           full.names = TRUE)
-
-block.5 <- raster(all_oi_files[5])
-block.4 <- raster(all_oi_files[4])
-right <- raster::merge(block.4, block.5)
-plot(right, col=gray(0:100 / 100))
-
-block.1 <- raster(all_oi_files[1])
-block.2 <- raster(all_oi_files[2])
-left <- raster::merge(block.1, block.2)
-plot(left, col=gray(0:100 / 100))
-
-## merge left and right sides of image to plot extent of interest
-full <- raster::merge(left, right)
-
-## set extent coordinates
-lo.x <- 663750-200
-hi.x <- 665100+500
-lo.y <- 3497800
-hi.y <- 3499400+50
-## make extent object
-ext <- extent(lo.x, hi.x, lo.y, hi.y)
-
-pdf('/Users/Avril/Desktop/hires_calc_mound_locations.pdf', width=7, height=5.87)
-plot(full, col=gray(0:100 / 100), ext=ext, legend=FALSE, xaxt='n', yaxt='n')
-  points(mnd.locs, pch=19, cex=0.5, col='yellow3')
-  scalebar(d=500, xy=c(665000,3497950), lonlat=FALSE, adj=c(-1.1,-.30), below='meters', lwd=3, col='white')
-dev.off()  
+ 
   
