@@ -10,13 +10,13 @@ library(TeachingDemos)
 source('/Users/Avril/Documents/krat_remote_sensing/krat_remote_sensing_scripts/c2l2readMeta.R')
 `%notin%` <- Negate(`%in%`)
 
-##### Read in mound waypoints #####
-mnd.locs <- read.csv('/Users/Avril/Documents/krat_remote_sensing/intermediate_data/mound_GPS_coords_n188.csv')
-mnd.locs$ID <- 1:nrow(mnd.locs) ## add column for later matching up with TC extracted pixel values
-mnd.cells <- mnd.locs[,c(4,5)] ## save ID and db.name for saving cell names later
-coordinates(mnd.locs) <- c('long','lat') ## converts to SpatialPointsDataFrame object for plotting
-proj4string(mnd.locs) <- CRS("+proj=longlat +datum=WGS84")
-mnd.locs <- sp::spTransform(mnd.locs, CRS("+proj=utm +zone=12 +ellps=WGS84 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs"))
+##### Read in mound waypoints - I don't think I need these data? just mound:cell assignments #####
+# mnd.locs <- read.csv('/Users/Avril/Documents/krat_remote_sensing/intermediate_data/mound_GPS_coords_n188.csv')
+# mnd.locs$ID <- 1:nrow(mnd.locs) ## add column for later matching up with TC extracted pixel values
+# mnd.cells <- mnd.locs[,c(4,5)] ## save ID and db.name for saving cell names later
+# coordinates(mnd.locs) <- c('long','lat') ## converts to SpatialPointsDataFrame object for plotting
+# proj4string(mnd.locs) <- CRS("+proj=longlat +datum=WGS84")
+# mnd.locs <- sp::spTransform(mnd.locs, CRS("+proj=utm +zone=12 +ellps=WGS84 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs"))
 
 ##### Read in population (Peter's) data #####
 pop.dat <- read.csv('/Users/Avril/Documents/krat_genetics/preseq_sample_information/KRATP.csv')
