@@ -127,6 +127,7 @@ nc <- ncol(ls5.stack) ## number of columns in raster
 nr <- nrow(ls5.stack) ## number of rows in raster
 loop.tc <- tc.dat[,-1]
 OUT <- NULL
+# pdf('/Users/Avril/Desktop/mounds_with_offspring_in_analysis.pdf', width=6, height=8)
 for(y in unique(off$year)){
   temp <- off[off$year == y,] ## subset offspring data to year
   cs <- unique(temp$cell.num) ## get list of all cells of interest for that year
@@ -141,14 +142,15 @@ for(y in unique(off$year)){
   tc.temp <- loop.tc[which(loop.tc$lag.year == y),] ## get lag year environmental data that corresponds to year preceeding offspring recorded for that year
   tc.temp <- tc.temp[which(tc.temp$cells %in% cs),]
   tc.temp <- tc.temp[!duplicated(tc.temp),]
-  save <- c(y, mean(tc.temp$greenness, na.rm=TRUE), mean(tc.temp[tc.temp$szn == 0, 'greenness'], na.rm=TRUE), ## get average TC values across all cells within a year
-            mean(tc.temp[tc.temp$szn == 1, 'greenness'], na.rm=TRUE), mean(tc.temp[tc.temp$szn == 2, 'greenness'], na.rm=TRUE),
-            mean(tc.temp$brightness, na.rm=TRUE), mean(tc.temp[tc.temp$szn == 0, 'brightness'], na.rm=TRUE), 
-            mean(tc.temp[tc.temp$szn == 1, 'brightness'], na.rm=TRUE), mean(tc.temp[tc.temp$szn == 2, 'brightness'], na.rm=TRUE),
-            mean(tc.temp$wetness, na.rm=TRUE), mean(tc.temp[tc.temp$szn == 0, 'wetness'], na.rm=TRUE), 
-            mean(tc.temp[tc.temp$szn == 1, 'wetness'], na.rm=TRUE), mean(tc.temp[tc.temp$szn == 2, 'wetness'], na.rm=TRUE))
+  save <- c(y, mean(tc.temp$greenness, na.rm=TRUE), mean(tc.temp[tc.temp$weather.szn == 0, 'greenness'], na.rm=TRUE), ## get average TC values across all cells within a year
+            mean(tc.temp[tc.temp$weather.szn == 1, 'greenness'], na.rm=TRUE), mean(tc.temp[tc.temp$weather.szn == 2, 'greenness'], na.rm=TRUE),
+            mean(tc.temp$brightness, na.rm=TRUE), mean(tc.temp[tc.temp$weather.szn == 0, 'brightness'], na.rm=TRUE), 
+            mean(tc.temp[tc.temp$weather.szn == 1, 'brightness'], na.rm=TRUE), mean(tc.temp[tc.temp$weather.szn == 2, 'brightness'], na.rm=TRUE),
+            mean(tc.temp$wetness, na.rm=TRUE), mean(tc.temp[tc.temp$weather.szn == 0, 'wetness'], na.rm=TRUE), 
+            mean(tc.temp[tc.temp$weather.szn == 1, 'wetness'], na.rm=TRUE), mean(tc.temp[tc.temp$weather.szn == 2, 'wetness'], na.rm=TRUE))
   OUT <- rbind(OUT, save)
 }
+# dev.off()
 year.dat <- as.data.frame(OUT)
 colnames(year.dat) <- c('year','mean.g','mean.offs.g','mean.mon.g','mean.win.g','mean.b','mean.offs.b','mean.mon.b','mean.win.b','mean.w','mean.offs.w','mean.mon.w','mean.win.w')
 
@@ -157,7 +159,7 @@ colnames(year.dat) <- c('year','mean.g','mean.offs.g','mean.mon.g','mean.win.g',
 # pdf('/Users/Avril/Desktop/new_offspring_in_KRATP.pdf', width=6, height=6.5)
 # for(i in unique(pop.dat$year)){
 #   temp <- pop.dat[which(pop.dat$year == i & pop.dat$offspring == 1),]
-#   plot(temp$long, temp$lat, pch=19, col=alpha('dodgerblue', 0.3), main=i,
+#   plot(temp$long, temp$lat, pch=19, col=alpha('dodgerblue', 0.3), main=i, xlab='Longitude', ylab='Latitude',
 #        xlim=c(min(pop.dat$long)-10, max(pop.dat$long)+10), ylim=c(min(pop.dat$lat)-10, max(pop.dat$lat)+10))
 # }
 # dev.off()
@@ -175,6 +177,8 @@ year.dat <- merge(year.dat, off.tot, by='year')
 year.dat <- year.dat[-c(17,18),]
 
 ## plot some relationships between TC mean values and year offspring totals
+## no obvious relationships between TC metrics averaged over the landscape seasonally/annually and total # of offspring
+## produced in the year at all mounds
 plot(year.dat$mean.g, year.dat$total.off, pch=19, col='springgreen4')
 plot(year.dat$mean.offs.g, year.dat$total.off, pch=19, col='springgreen4')
 plot(year.dat$mean.mon.g, year.dat$total.off, pch=19, col='springgreen4')
