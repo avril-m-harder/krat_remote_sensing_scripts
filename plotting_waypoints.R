@@ -101,13 +101,13 @@ coordinates(gps.pts.plot) <- c('long','lat') ## converts to SpatialPointsDataFra
 proj4string(gps.pts.plot) <- CRS("+proj=longlat +datum=WGS84") 
 gps.pts.plot <- spTransform(gps.pts.plot, CRS("+proj=utm +zone=12 +ellps=WGS84 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs"))
 ## plot all known waypoints
-pdf('/Users/Avril/Desktop/gps_locs_LARGE.pdf', width=200, height=200)
+# pdf('/Users/Avril/Desktop/gps_locs_LARGE.pdf', width=200, height=200)
 par(mar=c(3.1,2.1,2.1,1.1), mgp=c(1.5,.75,0))
 raster::plotRGB(ls5_stack, r=3,g=2,b=1, ext=ext)
   points(gps.pts.plot, pch=19, cex=2, col='yellow')
   text(gps.pts.plot, labels=gps.pts.plot$terr, col='white', adj=c(0,1.8)) ## useful when plotting large file (200 x 200)
   text(lo.x, hi.y, labels='All mounds with GPS locations', adj=c(0,1), col='yellow', cex=1.5)
-dev.off()
+# dev.off()
 ## plot with cell numbers to assign mounds without GPS coordinates to cells (added 7/12/21)
 temp.layer <- ls5_stack$LE07_L1TP_035038_20020817_20160928_01_T1_B1
 temp.layer <- setValues(temp.layer, 1:ncell(temp.layer))

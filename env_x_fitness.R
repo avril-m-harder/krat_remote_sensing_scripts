@@ -67,16 +67,33 @@ tc.dat[which(tc.dat$month %in% c(6:12)), 'lag.year'] <- tc.dat[which(tc.dat$mont
 tc.dat$month <- do.call(rbind, strsplit(tc.dat$acq.date, split='-'))[,2]
 tc.dat$month <- as.numeric(tc.dat$month)
 ### two seasonal options:
-# ## (1) define seasons by quarters (1=spring, 2=summer, 3=fall, 4=winter)
-# tc.dat[which(tc.dat$month %in% c(1,2,3)), 'szn'] <- 1
-# tc.dat[which(tc.dat$month %in% c(4,5,6)), 'szn'] <- 2
-# tc.dat[which(tc.dat$month %in% c(7,8,9)), 'szn'] <- 3
-# tc.dat[which(tc.dat$month %in% c(10,11,12)), 'szn'] <- 4
+## (1) define seasons by quarters (1=spring, 2=summer, 3=fall, 4=winter)
+tc.dat[which(tc.dat$month %in% c(1,2,3)), 'month.szn'] <- 1
+tc.dat[which(tc.dat$month %in% c(4,5,6)), 'month.szn'] <- 2
+tc.dat[which(tc.dat$month %in% c(7,8,9)), 'month.szn'] <- 3
+tc.dat[which(tc.dat$month %in% c(10,11,12)), 'month.szn'] <- 4
 
 ## (2) define seasons by expected precip (1=June-August, 2=Dec-March, 0=outside these months)
-tc.dat[which(tc.dat$month %in% c(6,7,8)), 'szn'] <- 1
-tc.dat[which(tc.dat$month %in% c(12,1,2,3)), 'szn'] <- 2
-tc.dat[which(tc.dat$month %in% c(4,5,9,10,11)), 'szn'] <- 0
+tc.dat[which(tc.dat$month %in% c(6,7,8)), 'weather.szn'] <- 1
+tc.dat[which(tc.dat$month %in% c(12,1,2,3)), 'weather.szn'] <- 2
+tc.dat[which(tc.dat$month %in% c(4,5,9,10,11)), 'weather.szn'] <- 0
+
+## examine variation in TC metrics across months and different seasonal options -- not sure that this was very helpful?
+# pdf('/Users/Avril/Desktop/tc_metric_variation_across_intervals.pdf', width=6, height=15)
+# par(mfrow=c(3,1))
+# for(i in unique(tc.dat$year)){
+#   temp <- tc.dat[tc.dat$year == i,]
+#   boxplot(temp$greenness ~ temp$month, main=paste0(i,'\ngreenness'), xlab='Month', ylab='Greenness', pch=19, cex=0.5)
+#   boxplot(temp$greenness ~ temp$month.szn, main=paste0(i,'\ngreenness'), xlab='Quarterly seasons', ylab='Greenness', pch=19, cex=0.5)
+#   boxplot(temp$greenness ~ temp$weather.szn, main=paste0(i,'\ngreenness'), xlab='Weather-defined seasons', ylab='Greenness', pch=19, cex=0.5)
+#   boxplot(temp$wetness ~ temp$month, main=paste0(i,'\nwetness'), xlab='Month', ylab='Wetness', pch=19, cex=0.5)
+#   boxplot(temp$wetness ~ temp$month.szn, main=paste0(i,'\nwetness'), xlab='Quarterly seasons', ylab='Wetness', pch=19, cex=0.5)
+#   boxplot(temp$wetness ~ temp$weather.szn, main=paste0(i,'\nwetness'), xlab='Weather-defined seasons', ylab='Wetness', pch=19, cex=0.5)
+#   boxplot(temp$brightness ~ temp$month, main=paste0(i,'\nbrightness'), xlab='Month', ylab='Brightness', pch=19, cex=0.5)
+#   boxplot(temp$brightness ~ temp$month.szn, main=paste0(i,'\nbrightness'), xlab='Quarterly seasons', ylab='Brightness', pch=19, cex=0.5)
+#   boxplot(temp$brightness ~ temp$weather.szn, main=paste0(i,'\nbrightness'), xlab='Weather-defined seasons', ylab='Brightness', pch=19, cex=0.5)
+# }
+# dev.off()
 
 ## read in 1 cropped scene to get background image and cell #s (rows, columns)
 ls5.stack <- brick('/Users/Avril/Documents/krat_remote_sensing/C2L2_cropped_landsat45tm_scenes/LT05_L2SP_035038_20020622_20200905_02_T1_CROPPED.grd')
@@ -94,22 +111,28 @@ for(y in unique(pop.dat$year)){
 off <- OUT
 colnames(off) <- c('database.name','num.off','year')
 temp <- mc.key[,c('database.name','cell.num')]
-temp <- temp[!duplicated(temp),] ## only 188 entries, confirming mounds are always assigned to the same cell # across scenes
+temp <- temp[!duplicated(temp),] ## 214 entries, confirming mounds are always assigned to the same cell # across scenes
+
 off <- merge(off, temp, by='database.name') ## combine mound/offspring information with cell IDs
+##### !!! lose ~100 lines when merging above - sort this out #####
+# hist(off[which(off$database.name %notin% temp$database.name), 'year'], xlab='Year', main='Mounds unassigned to cells')
+# unique(off[which(off$database.name %notin% temp$database.name), 'database.name'])
+# unique(pop.dat[which(pop.dat$terr %notin% temp$database.name), 'terr'])
+
 off <- off[order(off$year),]
 
 ##### !!! have to figure out how to incorporate concept of lag year data #####
 ##### Check for relationships between environmental data for buffer zone around cells with offspring in a year
-nc <- ncol(ls5.stack)
-nr <- nrow(ls5.stack)
+nc <- ncol(ls5.stack) ## number of columns in raster
+nr <- nrow(ls5.stack) ## number of rows in raster
 loop.tc <- tc.dat[,-1]
 OUT <- NULL
 for(y in unique(off$year)){
   temp <- off[off$year == y,] ## subset offspring data to year
   cs <- unique(temp$cell.num) ## get list of all cells of interest for that year
   adj <- c(cs-nc-1, cs-nc, cs-nc+1, cs-1, cs+1, cs+nc-1, cs+nc, cs+nc+1) ## expand list of cells to include cells adjacent to cells of interest (center + 8 cells surrounding)
-  cs <- unique(c(cs, adj))
-  r <- ls5.stack
+  cs <- unique(c(cs, adj)) ## get list of unique cell #s
+  r <- ls5.stack ## create buffer polygon
   r[setdiff(seq_len(ncell(r)), cs)] <- NA
   r[!is.na(r)] <- 1
   raster::plotRGB(ls5.stack, r=3, g=2, b=1, scale=ls5.stack@data@max[c(3,2,1)], margins=FALSE)
@@ -128,6 +151,16 @@ for(y in unique(off$year)){
 }
 year.dat <- as.data.frame(OUT)
 colnames(year.dat) <- c('year','mean.g','mean.offs.g','mean.mon.g','mean.win.g','mean.b','mean.offs.b','mean.mon.b','mean.win.b','mean.w','mean.offs.w','mean.mon.w','mean.win.w')
+
+## make sure that all mounds with new offspring are being accounted for in TC analysis -- looks good
+# pop.dat <- pop.dat[order(pop.dat$year),]
+# pdf('/Users/Avril/Desktop/new_offspring_in_KRATP.pdf', width=6, height=6.5)
+# for(i in unique(pop.dat$year)){
+#   temp <- pop.dat[which(pop.dat$year == i & pop.dat$offspring == 1),]
+#   plot(temp$long, temp$lat, pch=19, col=alpha('dodgerblue', 0.3), main=i,
+#        xlim=c(min(pop.dat$long)-10, max(pop.dat$long)+10), ylim=c(min(pop.dat$lat)-10, max(pop.dat$lat)+10))
+# }
+# dev.off()
 
 ## get annual offspring totals
 OUT <- NULL
