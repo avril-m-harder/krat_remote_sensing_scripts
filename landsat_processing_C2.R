@@ -159,14 +159,14 @@ for(i in 1:length(files)){
   # plot(ls5.tc.cor$wetness, xlab='UTM westing coordinate (m)', ylab='UTM northing coordinate (m)', bty='n', main=paste0(files[i],'\nwetness'))
   #   points(all.locs, pch=19, cex=0.2)
 
-  ## extract TC pixel data for mounds & surrounding pixels
-  ## for pixel mound is located in (buffer = ## meters);
-  ## set buffer size
-  b <- 78
-  # ## median dispersal distances from birth to reproductive mound = 77.5 m (females) and 40 m (males)
-  g.ness <- extract(ls5.tc.cor$greenness, all.locs, method='simple', df=TRUE, cellnumbers=TRUE, buffer=b)
-  w.ness <- extract(ls5.tc.cor$wetness, all.locs, method='simple', df=TRUE, cellnumbers=TRUE, buffer=b)
-  b.ness <- extract(ls5.tc.cor$brightness, all.locs, method='simple', df=TRUE, cellnumbers=TRUE, buffer=b)
+  # ## extract TC pixel data for mounds & surrounding pixels
+  # ## for pixel mound is located in (buffer = ## meters);
+  # ## set buffer size
+  # b <- 78
+  # # ## median dispersal distances from birth to reproductive mound = 77.5 m (females) and 40 m (males)
+  # g.ness <- extract(ls5.tc.cor$greenness, all.locs, method='simple', df=TRUE, cellnumbers=TRUE)
+  # w.ness <- extract(ls5.tc.cor$wetness, all.locs, method='simple', df=TRUE, cellnumbers=TRUE, buffer=b)
+  # b.ness <- extract(ls5.tc.cor$brightness, all.locs, method='simple', df=TRUE, cellnumbers=TRUE, buffer=b)
   # ## check TC output, just to be safe
   # stopifnot(all(g.ness[,c(1,2)] == w.ness[,c(1,2)]), all(g.ness[,c(1,2)] == b.ness[,c(1,2)]))
 
@@ -180,13 +180,26 @@ for(i in 1:length(files)){
   #   plot(rasterToPolygons(r2, dissolve=TRUE), add=TRUE, border='red', lwd=2)
   ## maybe save data for focal pixels, then figure out which pixels are in the buffer zone, and save values for those,
   ## with key linking cell numbers in buffer zone to corresponding focal pixels?
+  
+  ## actually, just keep TC values for all cells in case you wanna use lag years (and there would be different data availability
+  ## based on buffers in that case)
+  nc <- ncell(ls5.tc.cor)
+  g.ness <- cbind(c(1:nc), as.data.frame(ls5.tc.cor$greenness))
+  w.ness <- cbind(c(1:nc), as.data.frame(ls5.tc.cor$wetness))
+  b.ness <- cbind(c(1:nc), as.data.frame(ls5.tc.cor$brightness))
 
   ## calculate other spectral indices
   oth.ind <- spectralIndices(ls5.stack, blue='B1_sr', green='B2_sr', red='B3_sr', nir='B4_sr', indices=c('NDVI', 'SAVI', 'MSAVI', 'NDWI'))
-  ndvi <- extract(oth.ind$NDVI, all.locs, method='simple', df=TRUE, cellnumbers=TRUE, buffer=b)
-  savi <- extract(oth.ind$SAVI, all.locs, method='simple', df=TRUE, cellnumbers=TRUE, buffer=b)
-  msavi <- extract(oth.ind$MSAVI, all.locs, method='simple', df=TRUE, cellnumbers=TRUE, buffer=b)
-  ndwi <- extract(oth.ind$NDWI, all.locs, method='simple', df=TRUE, cellnumbers=TRUE, buffer=b)
+  ## if using a buffer
+  # ndvi <- extract(oth.ind$NDVI, all.locs, method='simple', df=TRUE, cellnumbers=TRUE, buffer=b)
+  # savi <- extract(oth.ind$SAVI, all.locs, method='simple', df=TRUE, cellnumbers=TRUE, buffer=b)
+  # msavi <- extract(oth.ind$MSAVI, all.locs, method='simple', df=TRUE, cellnumbers=TRUE, buffer=b)
+  # ndwi <- extract(oth.ind$NDWI, all.locs, method='simple', df=TRUE, cellnumbers=TRUE, buffer=b)
+  ## if saving all cell values
+  ndvi <- cbind(c(1:nc), as.data.frame(oth.ind$NDVI))
+  savi <- cbind(c(1:nc), as.data.frame(oth.ind$SAVI))
+  msavi <- cbind(c(1:nc), as.data.frame(oth.ind$MSAVI))
+  ndwi <- cbind(c(1:nc), as.data.frame(oth.ind$NDWI))
 
   ## define data to be saved and format for writing output
   scene.id <- m.data$SCENE_ID
@@ -195,12 +208,12 @@ for(i in 1:length(files)){
   path <- m.data$PATH_ROW[1]
   row <- m.data$PATH_ROW[2]
   doy <- as.numeric(strftime(acq.date, format='%j'))
-  all.tc <- merge(x=g.ness, y=w.ness, by=c('ID','cells'))
-  all.tc <- merge(x=all.tc, y=b.ness, by=c('ID','cells'))
-  all.tc <- merge(x=all.tc, y=ndvi, by=c('ID','cells'))
-  all.tc <- merge(x=all.tc, y=savi, by=c('ID','cells'))
-  all.tc <- merge(x=all.tc, y=msavi, by=c('ID','cells'))
-  all.tc <- merge(x=all.tc, y=ndwi, by=c('ID','cells'))
+  all.tc <- merge(x=g.ness, y=w.ness, by=c('c(1:nc)'))
+  all.tc <- merge(x=all.tc, y=b.ness, by=c('c(1:nc)'))
+  all.tc <- merge(x=all.tc, y=ndvi, by=c('c(1:nc)'))
+  all.tc <- merge(x=all.tc, y=savi, by=c('c(1:nc)'))
+  all.tc <- merge(x=all.tc, y=msavi, by=c('c(1:nc)'))
+  all.tc <- merge(x=all.tc, y=ndwi, by=c('c(1:nc)'))
   all.tc$acq.date <- acq.date
   all.tc$doy <- doy
   all.tc$scene.id <- scene.id
@@ -209,6 +222,7 @@ for(i in 1:length(files)){
   all.tc$row <- row
   all.tc$nrows <- ls5.tc.cor$brightness@nrows
   all.tc$ncols <- ls5.tc.cor$brightness@ncols
+  colnames(all.tc)[1] <- 'cell.num'
 
   ## -- write to a file continuously to free up memory
   write.table(all.tc, file=paste0('../C2L2_tc_output_tables/C2L2_',tc.fn,'.csv'), quote=FALSE, append=TRUE,

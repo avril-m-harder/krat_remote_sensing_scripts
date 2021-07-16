@@ -114,6 +114,7 @@ for(y in unique(pop.dat$year)){
 }
 off <- OUT
 colnames(off) <- c('database.name','num.off','year')
+off <- off[which(off$year <= 2005),]
 temp <- mc.key[,c('database.name','cell.num')]
 temp <- temp[!duplicated(temp),] ## 214 entries, confirming mounds are always assigned to the same cell # across scenes
 
