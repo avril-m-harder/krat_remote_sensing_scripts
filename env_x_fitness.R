@@ -55,7 +55,11 @@ mc.key <- read.csv(paste0('/Users/Avril/Documents/krat_remote_sensing/C2L2_tc_ou
 
 ## remove scenes with weird data (for cloud-free scenes, this really improves the outlier situation)
 tc.dat <- tc.dat[which(tc.dat$prod.id %notin% scenes.rm),]
+tc.dat <- tc.dat[,-1]
+tc.dat <- tc.dat[!duplicated(tc.dat),]
 mc.key <- mc.key[which(mc.key$prod.id %notin% scenes.rm),]
+mounds.cells.only <- mc.key[,c('database.name','cell.num')]
+mounds.cells.only <- mounds.cells.only[!duplicated(mounds.cells.only),]
 
 ##### Define seasons #####
 tc.dat$year <- do.call(rbind, strsplit(tc.dat$acq.date, split='-'))[,1]
@@ -125,7 +129,7 @@ off <- off[order(off$year),]
 ##### Check for relationships between environmental data for buffer zone around cells with offspring in a year
 nc <- ncol(ls5.stack) ## number of columns in raster
 nr <- nrow(ls5.stack) ## number of rows in raster
-loop.tc <- tc.dat[,-1]
+loop.tc <- tc.dat
 OUT <- NULL
 # pdf('/Users/Avril/Desktop/mounds_with_offspring_in_analysis.pdf', width=6, height=8)
 for(y in unique(off$year)){
@@ -192,4 +196,40 @@ plot(year.dat$mean.offs.w, year.dat$total.off, pch=19, col='dodgerblue')
 plot(year.dat$mean.mon.w, year.dat$total.off, pch=19, col='dodgerblue')
 plot(year.dat$mean.win.w, year.dat$total.off, pch=19, col='dodgerblue')
 summary(lm(year.dat$total.off ~ year.dat$mean.win.w))
+
+## try zooming in to more local relationships:
+## (1) annual and seasonal mean TC metrics within 1 cell : # offspring produced in that cell
+## (2) annual and seasonal mean TC metrics for 1 cell + adjacent cells : # offspring produced in the focal cell
+tc.dat <- tc.dat[order(tc.dat$year),]
+for(i in 1990:2005){
+  temp <- pop.dat[pop.dat$year == i & pop.dat$offspring == 1,]
+  for(j in unique(temp$terr)){
+    cell <- mounds.cells.only[grep(j, mounds.cells.only$database.name), 'cell.num']
+    stopifnot(length(cell) == 1)
+    sub <- tc.dat[which(tc.dat$cells == cell & tc.dat$year == i),] ## also try lag.year instead of year
+  }
+}
+
+##### !!!!! big issue with terr names notmatching !!!!! #####
+
+
+
+#
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
