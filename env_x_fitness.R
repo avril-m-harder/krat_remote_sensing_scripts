@@ -55,8 +55,6 @@ mc.key <- read.csv(paste0('/Users/Avril/Documents/krat_remote_sensing/C2L2_tc_ou
 
 ## remove scenes with weird data (for cloud-free scenes, this really improves the outlier situation)
 tc.dat <- tc.dat[which(tc.dat$prod.id %notin% scenes.rm),]
-tc.dat <- tc.dat[,-1]
-tc.dat <- tc.dat[!duplicated(tc.dat),]
 mc.key <- mc.key[which(mc.key$prod.id %notin% scenes.rm),]
 mounds.cells.only <- mc.key[,c('database.name','cell.num')]
 mounds.cells.only <- mounds.cells.only[!duplicated(mounds.cells.only),]
@@ -120,6 +118,7 @@ temp <- temp[!duplicated(temp),] ## 214 entries, confirming mounds are always as
 
 off <- merge(off, temp, by='database.name') ## combine mound/offspring information with cell IDs
 ##### !!! lose ~100 lines when merging above - sort this out #####
+## only lose ~5 when limiting by year 2005 or earlier
 # hist(off[which(off$database.name %notin% temp$database.name), 'year'], xlab='Year', main='Mounds unassigned to cells')
 # unique(off[which(off$database.name %notin% temp$database.name), 'database.name'])
 # unique(pop.dat[which(pop.dat$terr %notin% temp$database.name), 'terr'])
@@ -145,7 +144,7 @@ for(y in unique(off$year)){
     plot(rasterToPolygons(r, dissolve=TRUE), add=TRUE, border='red', lwd=2) ## plot outline of cells to be included in analyses
     legend('topleft', legend=y, bty='n', inset=c(0.15, 0.02), cex=1.5)
   tc.temp <- loop.tc[which(loop.tc$lag.year == y),] ## get lag year environmental data that corresponds to year preceeding offspring recorded for that year
-  tc.temp <- tc.temp[which(tc.temp$cells %in% cs),]
+  tc.temp <- tc.temp[which(tc.temp$cell.num %in% cs),]
   tc.temp <- tc.temp[!duplicated(tc.temp),]
   save <- c(y, mean(tc.temp$greenness, na.rm=TRUE), mean(tc.temp[tc.temp$weather.szn == 0, 'greenness'], na.rm=TRUE), ## get average TC values across all cells within a year
             mean(tc.temp[tc.temp$weather.szn == 1, 'greenness'], na.rm=TRUE), mean(tc.temp[tc.temp$weather.szn == 2, 'greenness'], na.rm=TRUE),
@@ -179,7 +178,6 @@ for(i in unique(off$year)){
 off.tot <- as.data.frame(OUT)
 colnames(off.tot) <- c('year','total.off')
 year.dat <- merge(year.dat, off.tot, by='year')
-year.dat <- year.dat[-c(17,18),]
 
 ## plot some relationships between TC mean values and year offspring totals
 ## no obvious relationships between TC metrics averaged over the landscape seasonally/annually and total # of offspring
@@ -201,19 +199,40 @@ summary(lm(year.dat$total.off ~ year.dat$mean.win.w))
 ## try zooming in to more local relationships:
 ## (1) annual and seasonal mean TC metrics within 1 cell : # offspring produced in that cell
 ## (2) annual and seasonal mean TC metrics for 1 cell + adjacent cells : # offspring produced in the focal cell
-tc.dat <- tc.dat[order(tc.dat$year),]
-for(i in 1990:2005){
-  temp <- pop.dat[pop.dat$year == i & pop.dat$offspring == 1,]
-  for(j in unique(temp$terr)){
-    cell <- mounds.cells.only[grep(j, mounds.cells.only$database.name), 'cell.num']
-    stopifnot(length(cell) == 1)
-    sub <- tc.dat[which(tc.dat$cells == cell & tc.dat$year == i),] ## also try lag.year instead of year
+## collapse offspring count info by cell # only (get rid of mound info)
+##### !!! also need to do something with TC values for cells with mounds that produced no offspring. idk how !!! #####
+OUT <- NULL
+for(i in unique(off$year)){
+  temp <- off[off$year == i,]
+  for(j in unique(temp$cell.num)){
+    save <- c(i, j, sum(temp[which(temp$cell.num == j), 'num.off']))
+    OUT <- rbind(OUT, save)
   }
 }
+cell.offs <- as.data.frame(OUT)
+colnames(cell.offs) <- c('year','cell.num','num.off')
+cell.offs <- merge(cell.offs, tc.dat, by=c('year','cell.num'))
+OUT <- NULL
+for(i in unique(cell.offs$year)){
+  temp <- cell.offs[cell.offs$year == i,]
+  for(j in unique(temp$cell.num)){
+    sub <- temp[temp$cell.num == j,]
+    ## save max and min TC metric values for each cell with offspring in each year
+    save <- c(i, j, sub$num.off[1], min(sub$greenness), max(sub$greenness), 
+              min(sub$wetness), max(sub$wetness),
+              min(sub$brightness), max(sub$brightness))
+    OUT <- rbind(OUT, save)
+  }
+}
+tc.cell.offs <- as.data.frame(OUT)
+colnames(tc.cell.offs) <- c('year','cell.num','num.off','min.g','max.g','min.w','max.w','min.b','max.b')
 
-##### !!!!! big issue with terr names notmatching !!!!! #####
-
-
+plot(tc.cell.offs$min.g, tc.cell.offs$num.off, pch=19, col=alpha('darkgreen', 0.4))
+plot(tc.cell.offs$max.g, tc.cell.offs$num.off, pch=19, col=alpha('darkgreen', 0.4))
+plot(tc.cell.offs$min.w, tc.cell.offs$num.off, pch=19, col=alpha('blue', 0.4))
+plot(tc.cell.offs$max.w, tc.cell.offs$num.off, pch=19, col=alpha('blue', 0.4))
+plot(tc.cell.offs$min.b, tc.cell.offs$num.off, pch=19, col=alpha('sienna', 0.4))
+plot(tc.cell.offs$max.b, tc.cell.offs$num.off, pch=19, col=alpha('sienna', 0.4))
 
 #
 
