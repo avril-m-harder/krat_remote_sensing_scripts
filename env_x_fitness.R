@@ -23,7 +23,13 @@ pop.dat <- read.csv('/Users/Avril/Documents/krat_genetics/preseq_sample_informat
 ## lat/long headings reversed in original file
 colnames(pop.dat)[7:8] <- c('long','lat')
 
-##### Read in manual mound:cell assignments #####
+##### Read in more population (Janna's) data #####
+j.dat <- read.csv('/Users/Avril/Documents/krats/krat_data_and_paper2/summary_allstats2_withgen_zeroes.csv')
+ages <- j.dat[,c('id','birthyear','deathyear')]
+ages$age <- ages$deathyear - ages$birthyear
+ages <- ages[,c(1,4)]
+
+##### Read in manual mound:cell assignments (n=26) #####
 ### >> also needed to re-name unique mounds that were all labeled 'R2' in the original database 
 man.ass <- read.csv('/Users/Avril/Documents/krat_remote_sensing/archive/sorting_out_mound_names/manual_mound_cell_assignments.csv')
 ## rename 'R2' mounds to match their actual locations (unique names R2.1-R2.6)
@@ -102,154 +108,137 @@ ls5.stack <- brick('/Users/Avril/Documents/krat_remote_sensing/C2L2_cropped_land
 raster::plotRGB(ls5.stack, r=3, g=2, b=1, scale=ls5.stack@data@max[c(3,2,1)], margins=FALSE)
 
 ##### Get number of offspring recorded per mound per year and assign to cells in the raster #####
+## >> relies on 'offspring' == 1 designation to assign offspring to the mound where recorded;
+## >> does not consider any pedigree information (e.g., where individual ID'ed as mom was sampled)
 OUT <- NULL
 for(y in unique(pop.dat$year)){
   sub <- pop.dat[pop.dat$year == y,] ## subset to year
   off <- sub[sub$offspring == 1,] ## get information for all offspring first recorded in that year
-  off <- as.data.frame(table(off$terr)) ## get tally of offspring per mound
-  off$year <- y
+  off.ages <- ages[which(ages$id %in% off$id),]
+  off <- merge(off, off.ages, by='id')
   OUT <- rbind(OUT, off)
 }
 off <- OUT
-colnames(off) <- c('database.name','num.off','year')
 off <- off[which(off$year <= 2005),]
+colnames(off)[6] <- 'database.name'
 temp <- mc.key[,c('database.name','cell.num')]
 temp <- temp[!duplicated(temp),] ## 214 entries, confirming mounds are always assigned to the same cell # across scenes
-
 off <- merge(off, temp, by='database.name') ## combine mound/offspring information with cell IDs
-##### !!! lose ~100 lines when merging above - sort this out #####
-## only lose ~5 when limiting by year 2005 or earlier
 # hist(off[which(off$database.name %notin% temp$database.name), 'year'], xlab='Year', main='Mounds unassigned to cells')
 # unique(off[which(off$database.name %notin% temp$database.name), 'database.name'])
 # unique(pop.dat[which(pop.dat$terr %notin% temp$database.name), 'terr'])
-
 off <- off[order(off$year),]
 
-##### !!! have to figure out how to incorporate concept of lag year data #####
-##### Check for relationships between environmental data for buffer zone around cells with offspring in a year
-nc <- ncol(ls5.stack) ## number of columns in raster
-nr <- nrow(ls5.stack) ## number of rows in raster
-loop.tc <- tc.dat
-OUT <- NULL
-# pdf('/Users/Avril/Desktop/mounds_with_offspring_in_analysis.pdf', width=6, height=8)
-for(y in unique(off$year)){
-  temp <- off[off$year == y,] ## subset offspring data to year
-  cs <- unique(temp$cell.num) ## get list of all cells of interest for that year
-  adj <- c(cs-nc-1, cs-nc, cs-nc+1, cs-1, cs+1, cs+nc-1, cs+nc, cs+nc+1) ## expand list of cells to include cells adjacent to cells of interest (center + 8 cells surrounding)
-  cs <- unique(c(cs, adj)) ## get list of unique cell #s
-  r <- ls5.stack ## create buffer polygon
-  r[setdiff(seq_len(ncell(r)), cs)] <- NA
-  r[!is.na(r)] <- 1
-  raster::plotRGB(ls5.stack, r=3, g=2, b=1, scale=ls5.stack@data@max[c(3,2,1)], margins=FALSE)
-    plot(rasterToPolygons(r, dissolve=TRUE), add=TRUE, border='red', lwd=2) ## plot outline of cells to be included in analyses
-    legend('topleft', legend=y, bty='n', inset=c(0.15, 0.02), cex=1.5)
-  tc.temp <- loop.tc[which(loop.tc$lag.year == y),] ## get lag year environmental data that corresponds to year preceeding offspring recorded for that year
-  tc.temp <- tc.temp[which(tc.temp$cell.num %in% cs),]
-  tc.temp <- tc.temp[!duplicated(tc.temp),]
-  save <- c(y, mean(tc.temp$greenness, na.rm=TRUE), mean(tc.temp[tc.temp$weather.szn == 0, 'greenness'], na.rm=TRUE), ## get average TC values across all cells within a year
-            mean(tc.temp[tc.temp$weather.szn == 1, 'greenness'], na.rm=TRUE), mean(tc.temp[tc.temp$weather.szn == 2, 'greenness'], na.rm=TRUE),
-            mean(tc.temp$brightness, na.rm=TRUE), mean(tc.temp[tc.temp$weather.szn == 0, 'brightness'], na.rm=TRUE), 
-            mean(tc.temp[tc.temp$weather.szn == 1, 'brightness'], na.rm=TRUE), mean(tc.temp[tc.temp$weather.szn == 2, 'brightness'], na.rm=TRUE),
-            mean(tc.temp$wetness, na.rm=TRUE), mean(tc.temp[tc.temp$weather.szn == 0, 'wetness'], na.rm=TRUE), 
-            mean(tc.temp[tc.temp$weather.szn == 1, 'wetness'], na.rm=TRUE), mean(tc.temp[tc.temp$weather.szn == 2, 'wetness'], na.rm=TRUE))
-  OUT <- rbind(OUT, save)
-}
-# dev.off()
-year.dat <- as.data.frame(OUT)
-colnames(year.dat) <- c('year','mean.g','mean.offs.g','mean.mon.g','mean.win.g','mean.b','mean.offs.b','mean.mon.b','mean.win.b','mean.w','mean.offs.w','mean.mon.w','mean.win.w')
 
-## make sure that all mounds with new offspring are being accounted for in TC analysis -- looks good
-# pop.dat <- pop.dat[order(pop.dat$year),]
-# pdf('/Users/Avril/Desktop/new_offspring_in_KRATP.pdf', width=6, height=6.5)
-# for(i in unique(pop.dat$year)){
-#   temp <- pop.dat[which(pop.dat$year == i & pop.dat$offspring == 1),]
-#   plot(temp$long, temp$lat, pch=19, col=alpha('dodgerblue', 0.3), main=i, xlab='Longitude', ylab='Latitude',
-#        xlim=c(min(pop.dat$long)-10, max(pop.dat$long)+10), ylim=c(min(pop.dat$lat)-10, max(pop.dat$lat)+10))
-# }
-# dev.off()
 
-## get annual offspring totals
-OUT <- NULL
-for(i in unique(off$year)){
-  temp <- off[off$year == i,]
-  save <- c(i, sum(temp$num.off))
-  OUT <- rbind(OUT, save)
-}
-off.tot <- as.data.frame(OUT)
-colnames(off.tot) <- c('year','total.off')
-year.dat <- merge(year.dat, off.tot, by='year')
-
-## plot some relationships between TC mean values and year offspring totals
-## no obvious relationships between TC metrics averaged over the landscape seasonally/annually and total # of offspring
-## produced in the year at all mounds
-plot(year.dat$mean.g, year.dat$total.off, pch=19, col='springgreen4')
-plot(year.dat$mean.offs.g, year.dat$total.off, pch=19, col='springgreen4')
-plot(year.dat$mean.mon.g, year.dat$total.off, pch=19, col='springgreen4')
-plot(year.dat$mean.win.g, year.dat$total.off, pch=19, col='springgreen4')
-plot(year.dat$mean.b, year.dat$total.off, pch=19, col='tan4')
-plot(year.dat$mean.offs.b, year.dat$total.off, pch=19, col='tan4')
-plot(year.dat$mean.mon.b, year.dat$total.off, pch=19, col='tan4')
-plot(year.dat$mean.win.b, year.dat$total.off, pch=19, col='tan4')
-plot(year.dat$mean.w, year.dat$total.off, pch=19, col='dodgerblue')
-plot(year.dat$mean.offs.w, year.dat$total.off, pch=19, col='dodgerblue')
-plot(year.dat$mean.mon.w, year.dat$total.off, pch=19, col='dodgerblue')
-plot(year.dat$mean.win.w, year.dat$total.off, pch=19, col='dodgerblue')
-summary(lm(year.dat$total.off ~ year.dat$mean.win.w))
-
-## try zooming in to more local relationships:
-## (1) annual and seasonal mean TC metrics within 1 cell : # offspring produced in that cell
-## (2) annual and seasonal mean TC metrics for 1 cell + adjacent cells : # offspring produced in the focal cell
-## collapse offspring count info by cell # only (get rid of mound info)
-##### !!! also need to do something with TC values for cells with mounds that produced no offspring. idk how !!! #####
-OUT <- NULL
-for(i in unique(off$year)){
-  temp <- off[off$year == i,]
-  for(j in unique(temp$cell.num)){
-    save <- c(i, j, sum(temp[which(temp$cell.num == j), 'num.off']))
-    OUT <- rbind(OUT, save)
-  }
-}
-cell.offs <- as.data.frame(OUT)
-colnames(cell.offs) <- c('year','cell.num','num.off')
-cell.offs <- merge(cell.offs, tc.dat, by=c('year','cell.num'))
-OUT <- NULL
-for(i in unique(cell.offs$year)){
-  temp <- cell.offs[cell.offs$year == i,]
-  for(j in unique(temp$cell.num)){
-    sub <- temp[temp$cell.num == j,]
-    ## save max and min TC metric values for each cell with offspring in each year
-    save <- c(i, j, sub$num.off[1], min(sub$greenness), max(sub$greenness), 
-              min(sub$wetness), max(sub$wetness),
-              min(sub$brightness), max(sub$brightness))
-    OUT <- rbind(OUT, save)
-  }
-}
-tc.cell.offs <- as.data.frame(OUT)
-colnames(tc.cell.offs) <- c('year','cell.num','num.off','min.g','max.g','min.w','max.w','min.b','max.b')
-
-plot(tc.cell.offs$min.g, tc.cell.offs$num.off, pch=19, col=alpha('darkgreen', 0.4))
-plot(tc.cell.offs$max.g, tc.cell.offs$num.off, pch=19, col=alpha('darkgreen', 0.4))
-plot(tc.cell.offs$min.w, tc.cell.offs$num.off, pch=19, col=alpha('blue', 0.4))
-plot(tc.cell.offs$max.w, tc.cell.offs$num.off, pch=19, col=alpha('blue', 0.4))
-plot(tc.cell.offs$min.b, tc.cell.offs$num.off, pch=19, col=alpha('sienna', 0.4))
-plot(tc.cell.offs$max.b, tc.cell.offs$num.off, pch=19, col=alpha('sienna', 0.4))
 
 #
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+# ##### !!! have to figure out how to incorporate concept of lag year data #####
+# ##### Check for relationships between environmental data for buffer zone around cells with offspring in a year
+# nc <- ncol(ls5.stack) ## number of columns in raster
+# nr <- nrow(ls5.stack) ## number of rows in raster
+# loop.tc <- tc.dat
+# OUT <- NULL
+# # pdf('/Users/Avril/Desktop/mounds_with_offspring_in_analysis.pdf', width=6, height=8)
+# for(y in unique(off$year)){
+#   temp <- off[off$year == y,] ## subset offspring data to year
+#   cs <- unique(temp$cell.num) ## get list of all cells of interest for that year
+#   adj <- c(cs-nc-1, cs-nc, cs-nc+1, cs-1, cs+1, cs+nc-1, cs+nc, cs+nc+1) ## expand list of cells to include cells adjacent to cells of interest (center + 8 cells surrounding)
+#   cs <- unique(c(cs, adj)) ## get list of unique cell #s
+#   r <- ls5.stack ## create buffer polygon
+#   r[setdiff(seq_len(ncell(r)), cs)] <- NA
+#   r[!is.na(r)] <- 1
+#   raster::plotRGB(ls5.stack, r=3, g=2, b=1, scale=ls5.stack@data@max[c(3,2,1)], margins=FALSE)
+#     plot(rasterToPolygons(r, dissolve=TRUE), add=TRUE, border='red', lwd=2) ## plot outline of cells to be included in analyses
+#     legend('topleft', legend=y, bty='n', inset=c(0.15, 0.02), cex=1.5)
+#   tc.temp <- loop.tc[which(loop.tc$lag.year == y),] ## get lag year environmental data that corresponds to year preceeding offspring recorded for that year
+#   tc.temp <- tc.temp[which(tc.temp$cell.num %in% cs),]
+#   tc.temp <- tc.temp[!duplicated(tc.temp),]
+#   save <- c(y, mean(tc.temp$greenness, na.rm=TRUE), mean(tc.temp[tc.temp$weather.szn == 0, 'greenness'], na.rm=TRUE), ## get average TC values across all cells within a year
+#             mean(tc.temp[tc.temp$weather.szn == 1, 'greenness'], na.rm=TRUE), mean(tc.temp[tc.temp$weather.szn == 2, 'greenness'], na.rm=TRUE),
+#             mean(tc.temp$brightness, na.rm=TRUE), mean(tc.temp[tc.temp$weather.szn == 0, 'brightness'], na.rm=TRUE), 
+#             mean(tc.temp[tc.temp$weather.szn == 1, 'brightness'], na.rm=TRUE), mean(tc.temp[tc.temp$weather.szn == 2, 'brightness'], na.rm=TRUE),
+#             mean(tc.temp$wetness, na.rm=TRUE), mean(tc.temp[tc.temp$weather.szn == 0, 'wetness'], na.rm=TRUE), 
+#             mean(tc.temp[tc.temp$weather.szn == 1, 'wetness'], na.rm=TRUE), mean(tc.temp[tc.temp$weather.szn == 2, 'wetness'], na.rm=TRUE))
+#   OUT <- rbind(OUT, save)
+# }
+# # dev.off()
+# year.dat <- as.data.frame(OUT)
+# colnames(year.dat) <- c('year','mean.g','mean.offs.g','mean.mon.g','mean.win.g','mean.b','mean.offs.b','mean.mon.b','mean.win.b','mean.w','mean.offs.w','mean.mon.w','mean.win.w')
+# 
+# ## make sure that all mounds with new offspring are being accounted for in TC analysis -- looks good
+# # pop.dat <- pop.dat[order(pop.dat$year),]
+# # pdf('/Users/Avril/Desktop/new_offspring_in_KRATP.pdf', width=6, height=6.5)
+# # for(i in unique(pop.dat$year)){
+# #   temp <- pop.dat[which(pop.dat$year == i & pop.dat$offspring == 1),]
+# #   plot(temp$long, temp$lat, pch=19, col=alpha('dodgerblue', 0.3), main=i, xlab='Longitude', ylab='Latitude',
+# #        xlim=c(min(pop.dat$long)-10, max(pop.dat$long)+10), ylim=c(min(pop.dat$lat)-10, max(pop.dat$lat)+10))
+# # }
+# # dev.off()
+# 
+# ## get annual offspring totals
+# OUT <- NULL
+# for(i in unique(off$year)){
+#   temp <- off[off$year == i,]
+#   save <- c(i, sum(temp$num.off))
+#   OUT <- rbind(OUT, save)
+# }
+# off.tot <- as.data.frame(OUT)
+# colnames(off.tot) <- c('year','total.off')
+# year.dat <- merge(year.dat, off.tot, by='year')
+# 
+# ## plot some relationships between TC mean values and year offspring totals
+# ## no obvious relationships between TC metrics averaged over the landscape seasonally/annually and total # of offspring
+# ## produced in the year at all mounds
+# plot(year.dat$mean.g, year.dat$total.off, pch=19, col='springgreen4')
+# plot(year.dat$mean.offs.g, year.dat$total.off, pch=19, col='springgreen4')
+# plot(year.dat$mean.mon.g, year.dat$total.off, pch=19, col='springgreen4')
+# plot(year.dat$mean.win.g, year.dat$total.off, pch=19, col='springgreen4')
+# plot(year.dat$mean.b, year.dat$total.off, pch=19, col='tan4')
+# plot(year.dat$mean.offs.b, year.dat$total.off, pch=19, col='tan4')
+# plot(year.dat$mean.mon.b, year.dat$total.off, pch=19, col='tan4')
+# plot(year.dat$mean.win.b, year.dat$total.off, pch=19, col='tan4')
+# plot(year.dat$mean.w, year.dat$total.off, pch=19, col='dodgerblue')
+# plot(year.dat$mean.offs.w, year.dat$total.off, pch=19, col='dodgerblue')
+# plot(year.dat$mean.mon.w, year.dat$total.off, pch=19, col='dodgerblue')
+# plot(year.dat$mean.win.w, year.dat$total.off, pch=19, col='dodgerblue')
+# summary(lm(year.dat$total.off ~ year.dat$mean.win.w))
+# 
+# ## try zooming in to more local relationships:
+# ## (1) annual and seasonal mean TC metrics within 1 cell : # offspring produced in that cell
+# ## (2) annual and seasonal mean TC metrics for 1 cell + adjacent cells : # offspring produced in the focal cell
+# ## collapse offspring count info by cell # only (get rid of mound info)
+# ##### !!! also need to do something with TC values for cells with mounds that produced no offspring. idk how !!! #####
+# OUT <- NULL
+# for(i in unique(off$year)){
+#   temp <- off[off$year == i,]
+#   for(j in unique(temp$cell.num)){
+#     save <- c(i, j, sum(temp[which(temp$cell.num == j), 'num.off']))
+#     OUT <- rbind(OUT, save)
+#   }
+# }
+# cell.offs <- as.data.frame(OUT)
+# colnames(cell.offs) <- c('year','cell.num','num.off')
+# cell.offs <- merge(cell.offs, tc.dat, by=c('year','cell.num'))
+# OUT <- NULL
+# for(i in unique(cell.offs$year)){
+#   temp <- cell.offs[cell.offs$year == i,]
+#   for(j in unique(temp$cell.num)){
+#     sub <- temp[temp$cell.num == j,]
+#     ## save max and min TC metric values for each cell with offspring in each year
+#     save <- c(i, j, sub$num.off[1], min(sub$greenness), max(sub$greenness), 
+#               min(sub$wetness), max(sub$wetness),
+#               min(sub$brightness), max(sub$brightness))
+#     OUT <- rbind(OUT, save)
+#   }
+# }
+# tc.cell.offs <- as.data.frame(OUT)
+# colnames(tc.cell.offs) <- c('year','cell.num','num.off','min.g','max.g','min.w','max.w','min.b','max.b')
+# 
+# plot(tc.cell.offs$min.g, tc.cell.offs$num.off, pch=19, col=alpha('darkgreen', 0.4))
+# plot(tc.cell.offs$max.g, tc.cell.offs$num.off, pch=19, col=alpha('darkgreen', 0.4))
+# plot(tc.cell.offs$min.w, tc.cell.offs$num.off, pch=19, col=alpha('blue', 0.4))
+# plot(tc.cell.offs$max.w, tc.cell.offs$num.off, pch=19, col=alpha('blue', 0.4))
+# plot(tc.cell.offs$min.b, tc.cell.offs$num.off, pch=19, col=alpha('sienna', 0.4))
+# plot(tc.cell.offs$max.b, tc.cell.offs$num.off, pch=19, col=alpha('sienna', 0.4))
