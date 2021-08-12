@@ -10,6 +10,10 @@ library(TeachingDemos)
 source('/Users/Avril/Documents/krat_remote_sensing/krat_remote_sensing_scripts/c2l2readMeta.R')
 `%notin%` <- Negate(`%in%`)
 
+g.col <- 'forestgreen'
+w.col <- 'deepskyblue2'
+b.col <- 'tan4'
+
 ##### Read in mound waypoints - I don't think I need these data? just mound:cell assignments #####
 # mnd.locs <- read.csv('/Users/Avril/Documents/krat_remote_sensing/intermediate_data/mound_GPS_coords_n188.csv')
 # mnd.locs$ID <- 1:nrow(mnd.locs) ## add column for later matching up with TC extracted pixel values
@@ -71,9 +75,10 @@ tc.dat$year <- do.call(rbind, strsplit(tc.dat$acq.date, split='-'))[,1]
 ## i.e., abiotic data from the months of June - May are predicting survival/fitness for indivs presumably born between those months
 tc.dat$year <- as.numeric(tc.dat$year)
 tc.dat$lag.year <- as.numeric(tc.dat$year)
-tc.dat[which(tc.dat$month %in% c(6:12)), 'lag.year'] <- tc.dat[which(tc.dat$month %in% c(6:12)), 'year'] + 1 
 tc.dat$month <- do.call(rbind, strsplit(tc.dat$acq.date, split='-'))[,2]
 tc.dat$month <- as.numeric(tc.dat$month)
+tc.dat[which(tc.dat$month %in% c(6:12)), 'lag.year'] <- tc.dat[which(tc.dat$month %in% c(6:12)), 'year'] + 1
+
 ### two seasonal options:
 ## (1) define seasons by quarters (1=spring, 2=summer, 3=fall, 4=winter)
 tc.dat[which(tc.dat$month %in% c(1,2,3)), 'month.szn'] <- 1
@@ -129,9 +134,143 @@ off <- merge(off, temp, by='database.name') ## combine mound/offspring informati
 # unique(pop.dat[which(pop.dat$terr %notin% temp$database.name), 'terr'])
 off <- off[order(off$year),]
 
+##### For each year and each cell, summarize mound and offspring information for later random sampling
+## (# observed at that mound, # surviving > 0 years, average age)
+OUT <- NULL
+for(y in unique(off$year)){ ## for each year,
+  sub <- off[off$year == y,]
+  for(i in unique(sub$cell.num)){ ## and for each cell with offspring recorded in that year,
+    temp <- sub[sub$cell.num == i,]
+    for(j in unique(temp$database.name)){
+      temp1 <- temp[temp$database.name == j,]
+      stopifnot(nrow(temp1) == length(unique(temp1$id))) ## make sure no IDs show up twice
+      num.off <- nrow(temp1) ## number of offspring recorded at that mound in that year
+      num.surv <- nrow(temp1[which(temp1$age > 0),]) ## number of offspring "" surviving to 1 year
+      avg.age <- mean(temp1$age) ## average age at death for offspring recorded at that mound in that year
+      save <- c(i, j, y, num.off, num.surv, avg.age)
+      OUT <- rbind(OUT, save)
+    }
+  }
+}
+mnd.offs <- as.data.frame(OUT, row.names = NA)
+colnames(mnd.offs) <- c('cell.num','database.name','year','num.off','num.surv','avg.age')
+mnd.offs$num.off <- as.numeric(mnd.offs$num.off)
+mnd.offs$num.surv <- as.numeric(mnd.offs$num.surv)
+mnd.offs$avg.age <- as.numeric(mnd.offs$avg.age)
 
+##### For each year and each cell, randomly select one mound with offspring recorded,
+## add TC information for focal cell
+sub.tc.dat <- tc.dat[,c(1:4,10,17:21)] ## subset TC information to just keep relevant bits
+OUT <- NULL
+for(y in unique(mnd.offs$year)){
+  print(y)
+  sub <- mnd.offs[mnd.offs$year == y,]
+  for(i in unique(sub$cell.num)){
+    temp <- sub[which(sub$cell.num == i),]
+    mnd <- sample(temp$database.name, 1) ## randomly select mound
+    save <- temp[temp$database.name == mnd,] ## save the information for that mound
+    tc.temp <- sub.tc.dat[which(sub.tc.dat$cell.num == i & sub.tc.dat$year == y),] ## and save relevant TC information
+    ## save annual information (number of scenes/observations, annual averages)
+    save$num.tc.obs <- nrow(tc.temp)
+    save$ann.mean.g <- mean(tc.temp$greenness, na.rm=TRUE)
+    save$ann.mean.w <- mean(tc.temp$wetness, na.rm=TRUE)
+    save$ann.mean.b <- mean(tc.temp$brightness, na.rm=TRUE)
+    ## save month-based season data for each of 4 seasons
+    save$month.szn.1.obs <- nrow(tc.temp[which(tc.temp$month.szn == 1),])
+    save$month.szn.1.g <- mean(tc.temp[which(tc.temp$month.szn == 1), 'greenness'], na.rm=TRUE)
+    save$month.szn.1.w <- mean(tc.temp[which(tc.temp$month.szn == 1), 'wetness'], na.rm=TRUE)
+    save$month.szn.1.b <- mean(tc.temp[which(tc.temp$month.szn == 1), 'brightness'], na.rm=TRUE)
+    save$month.szn.2.obs <- nrow(tc.temp[which(tc.temp$month.szn == 2),])
+    save$month.szn.2.g <- mean(tc.temp[which(tc.temp$month.szn == 2), 'greenness'], na.rm=TRUE)
+    save$month.szn.2.w <- mean(tc.temp[which(tc.temp$month.szn == 2), 'wetness'], na.rm=TRUE)
+    save$month.szn.2.b <- mean(tc.temp[which(tc.temp$month.szn == 2), 'brightness'], na.rm=TRUE)
+    save$month.szn.3.obs <- nrow(tc.temp[which(tc.temp$month.szn == 3),])
+    save$month.szn.3.g <- mean(tc.temp[which(tc.temp$month.szn == 3), 'greenness'], na.rm=TRUE)
+    save$month.szn.3.w <- mean(tc.temp[which(tc.temp$month.szn == 3), 'wetness'], na.rm=TRUE)
+    save$month.szn.3.b <- mean(tc.temp[which(tc.temp$month.szn == 3), 'brightness'], na.rm=TRUE)
+    save$month.szn.4.obs <- nrow(tc.temp[which(tc.temp$month.szn == 4),])
+    save$month.szn.4.g <- mean(tc.temp[which(tc.temp$month.szn == 4), 'greenness'], na.rm=TRUE)
+    save$month.szn.4.w <- mean(tc.temp[which(tc.temp$month.szn == 4), 'wetness'], na.rm=TRUE)
+    save$month.szn.4.b <- mean(tc.temp[which(tc.temp$month.szn == 4), 'brightness'], na.rm=TRUE)
+    ## save weather-based season data for each of 3 seasons
+    save$weather.szn.0.obs <- nrow(tc.temp[which(tc.temp$weather.szn == 0),])
+    save$weather.szn.0.g <- mean(tc.temp[which(tc.temp$weather.szn == 0), 'greenness'], na.rm=TRUE)
+    save$weather.szn.0.w <- mean(tc.temp[which(tc.temp$weather.szn == 0), 'wetness'], na.rm=TRUE)
+    save$weather.szn.0.b <- mean(tc.temp[which(tc.temp$weather.szn == 0), 'brightness'], na.rm=TRUE)
+    save$weather.szn.1.obs <- nrow(tc.temp[which(tc.temp$weather.szn == 1),])
+    save$weather.szn.1.g <- mean(tc.temp[which(tc.temp$weather.szn == 1), 'greenness'], na.rm=TRUE)
+    save$weather.szn.1.w <- mean(tc.temp[which(tc.temp$weather.szn == 1), 'wetness'], na.rm=TRUE)
+    save$weather.szn.1.b <- mean(tc.temp[which(tc.temp$weather.szn == 1), 'brightness'], na.rm=TRUE)
+    save$weather.szn.2.obs <- nrow(tc.temp[which(tc.temp$weather.szn == 2),])
+    save$weather.szn.2.g <- mean(tc.temp[which(tc.temp$weather.szn == 2), 'greenness'], na.rm=TRUE)
+    save$weather.szn.2.w <- mean(tc.temp[which(tc.temp$weather.szn == 2), 'wetness'], na.rm=TRUE)
+    save$weather.szn.2.b <- mean(tc.temp[which(tc.temp$weather.szn == 2), 'brightness'], na.rm=TRUE)
+    OUT <- rbind(OUT, save)
+  }
+}
+random.mnd.tc.year <- as.data.frame(OUT)
+write.csv(random.mnd.tc.year, '../intermediate_data/random_mound_data_using_year.csv', row.names = FALSE)
 
+## same as above, but using lag year instead of year
+# OUT <- NULL
+# for(y in unique(mnd.offs$year)){
+#   print(y)
+#   sub <- mnd.offs[mnd.offs$year == y,]
+#   for(i in unique(sub$cell.num)){
+#     temp <- sub[which(sub$cell.num == i),]
+#     mnd <- sample(temp$database.name, 1) ## randomly select mound
+#     save <- temp[temp$database.name == mnd,] ## save the information for that mound
+#     tc.temp <- sub.tc.dat[which(sub.tc.dat$cell.num == i & sub.tc.dat$lag.year == y),] ## and save relevant TC information
+#     ## save annual information (number of scenes/observations, annual averages)
+#     save$num.tc.obs <- nrow(tc.temp)
+#     save$ann.mean.g <- mean(tc.temp$greenness, na.rm=TRUE)
+#     save$ann.mean.w <- mean(tc.temp$wetness, na.rm=TRUE)
+#     save$ann.mean.b <- mean(tc.temp$brightness, na.rm=TRUE)
+#     ## save month-based season data for each of 4 seasons
+#     save$month.szn.1.obs <- nrow(tc.temp[which(tc.temp$month.szn == 1),])
+#     save$month.szn.1.g <- mean(tc.temp[which(tc.temp$month.szn == 1), 'greenness'], na.rm=TRUE)
+#     save$month.szn.1.w <- mean(tc.temp[which(tc.temp$month.szn == 1), 'wetness'], na.rm=TRUE)
+#     save$month.szn.1.b <- mean(tc.temp[which(tc.temp$month.szn == 1), 'brightness'], na.rm=TRUE)
+#     save$month.szn.2.obs <- nrow(tc.temp[which(tc.temp$month.szn == 2),])
+#     save$month.szn.2.g <- mean(tc.temp[which(tc.temp$month.szn == 2), 'greenness'], na.rm=TRUE)
+#     save$month.szn.2.w <- mean(tc.temp[which(tc.temp$month.szn == 2), 'wetness'], na.rm=TRUE)
+#     save$month.szn.2.b <- mean(tc.temp[which(tc.temp$month.szn == 2), 'brightness'], na.rm=TRUE)
+#     save$month.szn.3.obs <- nrow(tc.temp[which(tc.temp$month.szn == 3),])
+#     save$month.szn.3.g <- mean(tc.temp[which(tc.temp$month.szn == 3), 'greenness'], na.rm=TRUE)
+#     save$month.szn.3.w <- mean(tc.temp[which(tc.temp$month.szn == 3), 'wetness'], na.rm=TRUE)
+#     save$month.szn.3.b <- mean(tc.temp[which(tc.temp$month.szn == 3), 'brightness'], na.rm=TRUE)
+#     save$month.szn.4.obs <- nrow(tc.temp[which(tc.temp$month.szn == 4),])
+#     save$month.szn.4.g <- mean(tc.temp[which(tc.temp$month.szn == 4), 'greenness'], na.rm=TRUE)
+#     save$month.szn.4.w <- mean(tc.temp[which(tc.temp$month.szn == 4), 'wetness'], na.rm=TRUE)
+#     save$month.szn.4.b <- mean(tc.temp[which(tc.temp$month.szn == 4), 'brightness'], na.rm=TRUE)
+#     ## save weather-based season data for each of 3 seasons
+#     save$weather.szn.0.obs <- nrow(tc.temp[which(tc.temp$weather.szn == 0),])
+#     save$weather.szn.0.g <- mean(tc.temp[which(tc.temp$weather.szn == 0), 'greenness'], na.rm=TRUE)
+#     save$weather.szn.0.w <- mean(tc.temp[which(tc.temp$weather.szn == 0), 'wetness'], na.rm=TRUE)
+#     save$weather.szn.0.b <- mean(tc.temp[which(tc.temp$weather.szn == 0), 'brightness'], na.rm=TRUE)
+#     save$weather.szn.1.obs <- nrow(tc.temp[which(tc.temp$weather.szn == 1),])
+#     save$weather.szn.1.g <- mean(tc.temp[which(tc.temp$weather.szn == 1), 'greenness'], na.rm=TRUE)
+#     save$weather.szn.1.w <- mean(tc.temp[which(tc.temp$weather.szn == 1), 'wetness'], na.rm=TRUE)
+#     save$weather.szn.1.b <- mean(tc.temp[which(tc.temp$weather.szn == 1), 'brightness'], na.rm=TRUE)
+#     save$weather.szn.2.obs <- nrow(tc.temp[which(tc.temp$weather.szn == 2),])
+#     save$weather.szn.2.g <- mean(tc.temp[which(tc.temp$weather.szn == 2), 'greenness'], na.rm=TRUE)
+#     save$weather.szn.2.w <- mean(tc.temp[which(tc.temp$weather.szn == 2), 'wetness'], na.rm=TRUE)
+#     save$weather.szn.2.b <- mean(tc.temp[which(tc.temp$weather.szn == 2), 'brightness'], na.rm=TRUE)
+#     OUT <- rbind(OUT, save)
+#   }
+# }
+# random.mnd.tc.lag.year <- as.data.frame(OUT)
+# write.csv(random.mnd.tc.lag.year, '../intermediate_data/random_mound_data_using_lag_year.csv', row.names = FALSE)
 
+plot(random.mnd.tc.year$ann.mean.b, random.mnd.tc.year$num.off, col=alpha(b.col, 0.4), pch=19)
+plot(random.mnd.tc.year$ann.mean.g, random.mnd.tc.year$num.off, col=alpha(g.col, 0.4), pch=19)
+plot(random.mnd.tc.year$ann.mean.w, random.mnd.tc.year$num.off, col=alpha(w.col, 0.4), pch=19)
+plot(random.mnd.tc.year$ann.mean.b, random.mnd.tc.year$num.surv, col=alpha(b.col, 0.4), pch=19)
+plot(random.mnd.tc.year$ann.mean.g, random.mnd.tc.year$num.surv, col=alpha(g.col, 0.4), pch=19)
+plot(random.mnd.tc.year$ann.mean.w, random.mnd.tc.year$num.surv, col=alpha(w.col, 0.4), pch=19)
+plot(random.mnd.tc.year$ann.mean.b, random.mnd.tc.year$avg.age, col=alpha(b.col, 0.4), pch=19)
+plot(random.mnd.tc.year$ann.mean.g, random.mnd.tc.year$avg.age, col=alpha(g.col, 0.4), pch=19)
+plot(random.mnd.tc.year$ann.mean.w, random.mnd.tc.year$avg.age, col=alpha(w.col, 0.4), pch=19)
 #
 
 # ##### !!! have to figure out how to incorporate concept of lag year data #####
