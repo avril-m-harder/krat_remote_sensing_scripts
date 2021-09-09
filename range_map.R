@@ -30,8 +30,8 @@ border = st_cast(smooth.us.mex, to='POLYGON')
 
 
 states <- ne_states(country=c('United States of America', 'Mexico'), returnclass = 'sf')
-state.list <- c('Texas','New Mexico','Arizona','Nevada','California','Oklahoma','Colorado','Utah','Kansas')
-states <- states[which(states$name %in% state.list | states$admin == 'Mexico'),]
+# state.list <- c('Texas','New Mexico','Arizona','Nevada','California','Oklahoma','Colorado','Utah','Kansas')
+# states <- states[which(states$name %in% state.list | states$admin == 'Mexico'),]
 mx.states <- states[which(states$admin == 'Mexico'),]
 us.states <- states[which(states$admin != 'Mexico'),]
 
@@ -76,7 +76,7 @@ line.w <- 0
 rat <- readTIFF('IMG_1944.TIF', native=FALSE)
 r <- rasterGrob(rat, interpolate=TRUE)
 ##### Plot range map with krat marking study site #####
-# pdf('/Users/Avril/Desktop/map_with_site.pdf', width=5, height=5)
+pdf('/Users/Avril/Desktop/map_with_site.pdf', width=5, height=5)
 ggplot(data = states) +
   theme_classic() +
   theme(panel.background = element_rect(fill=alpha(blue, al)),
@@ -98,7 +98,7 @@ ggplot(data = states) +
   ## add krat!
   annotation_custom(r, xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax) +
   coord_sf(xlim = c(-117, -98), ylim = c(20, 38), expand = FALSE)
-# dev.off()
+dev.off()
 
 al <- 0
 # pdf('/Users/Avril/Desktop/just_krat.pdf', width=5, height=5)
@@ -170,3 +170,32 @@ ggplot(data = states) +
                  transform=TRUE, location='bottomleft', st.size=3, st.dist=.03) +
   coord_sf(xlim = c(-112, -106), ylim = c(30.5, 33), expand = FALSE)
 dev.off()
+
+###### Plot ranges for D. spectabilis and D. ordii #####
+## read in range map shapefile for D. ordii (downloaded from IUCN on 8/16/21)
+ord.range <- st_read('redlist_species_data_d2ab7e52-5cbf-4023-a227-2d2ee2f798b9/data_0.shp')
+
+plot(ord.range)
+# pdf('/Users/Avril/Desktop/map.pdf', width=6, height=6)
+ggplot(data = states) +
+  theme_classic() +
+  theme(panel.background = element_rect(fill=alpha(blue, al)),
+        axis.text=element_text(size=10, colour='black'),
+        axis.title=element_blank(),
+        panel.border=element_rect(fill=NA)) +
+  ## state outlines
+  geom_sf(fill='grey90', col='white', lwd=0.75) + ## other greens: springgreen4  #B5D383
+  ## US-Mexico border
+  geom_sf(data = border, col='white', lwd=2) +
+  ## add D. ordii range shapefile
+  # geom_sf(data = ord.range, col='tan4', fill=alpha('tan3', 0.5), lwd=line.w) + ## other blues: cadetblue1 #98CAC2
+  ## add range shapefile
+  # geom_sf(data = range, col='cadetblue4', fill=alpha('cadetblue', 0.5), lwd=line.w) + ## other blues: cadetblue1 #98CAC2
+  ## add site coords
+  # geom_point(y=31.6166667, x=-109.25, pch=8) +
+  ## add scalebar
+  # ggsn::scalebar(x.min=-115, x.max=-98, y.min=21, y.max=38,
+  #                dist=200, dist_unit='km', st.bottom=TRUE, st.color='black',
+  #                transform=TRUE, location='bottomleft', st.size=3, st.dist=.03) +
+  coord_sf(xlim = c(-120, -95), ylim = c(20, 38), expand = FALSE)
+# dev.off()
