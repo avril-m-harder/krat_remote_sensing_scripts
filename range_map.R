@@ -24,9 +24,11 @@ plot(range)
 ## prep state + country data
 mex <- ne_countries(country='Mexico', returnclass = 'sf', scale=10)
 us <- ne_countries(country='United States of America', returnclass = 'sf', scale=10)
-us.mex <- st_intersection(us, mex)
-smooth.us.mex <- smoothr::smooth(us.mex, method='densify')
-border = st_cast(smooth.us.mex, to='POLYGON')
+# us.mex <- st_intersection(st_geometry(mex), st_geometry(us))
+# smooth.us.mex <- smoothr::smooth(us.mex, method='densify')
+# border = st_cast(us.mex, to='POLYGON')
+
+border <- st_read('shp/International_Boundary_Final.shp')
 
 
 states <- ne_states(country=c('United States of America', 'Mexico'), returnclass = 'sf')
@@ -79,16 +81,16 @@ r <- rasterGrob(rat, interpolate=TRUE)
 pdf('/Users/Avril/Desktop/map_with_site.pdf', width=5, height=5)
 ggplot(data = states) +
   theme_classic() +
-  theme(panel.background = element_rect(fill=alpha(blue, al)),
+  theme(panel.background = element_rect(fill=alpha('white', al)),
         axis.text=element_text(size=10, colour='black'),
         axis.title=element_blank(),
         panel.border=element_rect(fill=NA)) +
   ## state outlines
-  geom_sf(fill=grey, col='grey80', lwd=0.25) + ## other greens: springgreen4  #B5D383
+  geom_sf(fill='grey85', col='white', lwd=0.25) + ## other greens: springgreen4  #B5D383
   ## US-Mexico border
   geom_sf(data = border, col='grey30', lwd=0.5) +
   ## add range shapefile
-  geom_sf(data = range, col='cadetblue4', fill=alpha('cadetblue', 0.8), lwd=line.w) + ## other blues: cadetblue1 #98CAC2
+  geom_sf(data = range, col='cadetblue4', fill=alpha('cadetblue', 0.6), lwd=line.w) + ## other blues: cadetblue1 #98CAC2
   ## add site coords
   # geom_point(y=31.6166667, x=-109.25, pch=8) +
   ## add scalebar
