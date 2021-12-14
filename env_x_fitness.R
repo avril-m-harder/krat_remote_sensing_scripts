@@ -14,14 +14,6 @@ g.col <- 'forestgreen'
 w.col <- 'deepskyblue2'
 b.col <- 'tan4'
 
-##### Read in mound waypoints - I don't think I need these data? just mound:cell assignments #####
-# mnd.locs <- read.csv('/Users/Avril/Documents/krat_remote_sensing/intermediate_data/mound_GPS_coords_n188.csv')
-# mnd.locs$ID <- 1:nrow(mnd.locs) ## add column for later matching up with TC extracted pixel values
-# mnd.cells <- mnd.locs[,c(4,5)] ## save ID and db.name for saving cell names later
-# coordinates(mnd.locs) <- c('long','lat') ## converts to SpatialPointsDataFrame object for plotting
-# proj4string(mnd.locs) <- CRS("+proj=longlat +datum=WGS84")
-# mnd.locs <- sp::spTransform(mnd.locs, CRS("+proj=utm +zone=12 +ellps=WGS84 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs"))
-
 ##### Read in population (Peter's) data #####
 pop.dat <- read.csv('/Users/Avril/Documents/krat_genetics/preseq_sample_information/KRATP.csv')
 ## lat/long headings reversed in original file
@@ -44,28 +36,21 @@ for(i in 1:nrow(r2)){
 
 ##### Read in TC and other index results #####
 ## set file names to be read in 
-tc.fn <- 'tc_cloud_free' ## for TC data -- tc_initial_test    tc_cloud_free
-mc.fn <- 'mnd_key_cloud_free' ## for mound/cell ID key -- mnd_key_initial_test    mnd_key_cloud_free
+tc.fn <- 'tc_manual_cloudcheck' ## for TC data -- tc_manual_cloudcheck
+mc.fn <- 'mnd_manual_cloudcheck' ## for mound/cell ID key -- mnd_manual_cloudcheck
 
-## read in list of scenes of interest (e.g., cloud-free)
-# files <- list.files(pattern="*.grd") ## to run with ALL scenes (causes some issues due to cloud masking step)
-# files <- read.table('/Users/Avril/Documents/krat_remote_sensing/C2L2_landsat_5_data_overviews/C2L2_intermediate_cloud_scenes.txt') ## scenes with <=60% cloud cover (n=574)
-files <- read.table('/Users/Avril/Documents/krat_remote_sensing/C2L2_landsat_5_data_overviews/C2L2_cloud_free_scenes.txt') ## scenes with 0% cloud cover (n=233)
-files$V1 <- paste0(files$V1,'_CROPPED.grd')
-files <- as.vector(files$V1)
-
-## results of manual checks: for cloud-free scenes, corrupted info in...
-## 90, 92, 93, 103, 105, 107, 109, 110, 112, 113, 116, 119, 122, 156, 159, 166
-## 156, 159, 166 really weird - like they're not the correct location?
-remove <- c(90, 92, 93, 103, 105, 107, 109, 110, 112, 113, 116, 119, 122, 156, 159, 166)
-scenes.rm <- gsub('_CROPPED.grd', '', files[remove])
+## read in results of manual cloud checking to get list of scenes to process (results of manual cloud checking)
+res <- read.csv('/Users/Avril/Documents/krat_remote_sensing/C2L2_landsat_5_data_overviews/C2L2_low_cloud_scenes_cloud_cover_notes.csv')
+table(res$usable) ## 365 / 460 scenes checked are usable (i.e., no clouds over extent or processing errors)
+res <- res[which(res$usable == 1),]
+files <- as.vector(res$filename)
 
 tc.dat <- read.csv(paste0('/Users/Avril/Documents/krat_remote_sensing/C2L2_tc_output_tables/C2L2_',tc.fn,'.csv'))
+## get rid of indices ID'ed as having correlation issues
+tc.dat <- tc.dat[,-c(5:7)]
 mc.key <- read.csv(paste0('/Users/Avril/Documents/krat_remote_sensing/C2L2_tc_output_tables/C2L2_',mc.fn,'.csv'))
 
-## remove scenes with weird data (for cloud-free scenes, this really improves the outlier situation)
-tc.dat <- tc.dat[which(tc.dat$prod.id %notin% scenes.rm),]
-mc.key <- mc.key[which(mc.key$prod.id %notin% scenes.rm),]
+## get list of mound:cell associations
 mounds.cells.only <- mc.key[,c('database.name','cell.num')]
 mounds.cells.only <- mounds.cells.only[!duplicated(mounds.cells.only),]
 
