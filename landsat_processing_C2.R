@@ -69,7 +69,7 @@ rm(ext, all_landsat_bands, crit_bands,
 # setwd('/Volumes/avril_data/krat_remote_sensing/C2L2_raw_landsat45tm_scene_downloads/')
 # dirs <- list.files()
 # 
-## set extent for all analyses
+# # set extent for all analyses
 # lo.x <- 663500
 # hi.x <- 665600
 # lo.y <- 3497000
@@ -109,6 +109,34 @@ rm(ext, all_landsat_bands, crit_bands,
 # }
 
 
+## for scenes of interest, print cropped image for manual cloud-cover check and write information
+## for taking notes on image quality in .csv file
+setwd('/Users/Avril/Documents/krat_remote_sensing/')
+files <- read.table('/Users/Avril/Documents/krat_remote_sensing/C2L2_landsat_5_data_overviews/C2L2_low_cloud_scenes.txt') ## scenes with <= 20% cloud cover (n=460)
+raw.files <- files$V1
+files$V1 <- paste0(files$V1,'_CROPPED.grd')
+files <- as.vector(files$V1)
+scenes.avail <- read.csv('C2L2_landsat_5_data_overviews/landsat_tm_c2_l2_all_scenes_avail.csv') ## read in info to get cloud cover data for whole scenes
+
+# setwd('/Users/Avril/Documents/krat_remote_sensing/C2L2_cropped_landsat45tm_scenes/')
+# pdf('../C2L2_landsat_5_data_overviews/C2L2_low_cloud_scenes_raw_images.pdf', width=8, height=8)
+# par(mar=c(3.1,2.1,2.1,1.1), mgp=c(1.5,.75,0))
+# OUT <- NULL
+# for(i in 1:length(files)){
+#   print(i)
+#   ls5.stack <- brick(files[i])
+#   plot.new()
+#   try(raster::plotRGB(ls5.stack, r=3, g=2, b=1, scale=ls5.stack@data@max[c(3,2,1)]), silent=TRUE)
+#   # try(raster::plotRGB(ls5.stack, r=3, g=2, b=1), silent=FALSE)
+#     graphics::legend('topleft', paste0(i,' - ',files[i]), bty='n', text.col='darkgreen')
+#   save <- c(i, files[i], scenes.avail[which(scenes.avail$Landsat.Product.Identifier.L2==raw.files[i]), 'Land.Cloud.Cover'])
+#   OUT <- rbind(OUT, save)
+# }
+# dev.off()
+# colnames(OUT) <- c('index','filename','cover')
+# write.csv(OUT, '../C2L2_landsat_5_data_overviews/C2L2_low_cloud_scenes_cloud_cover_notes.csv',
+#           row.names=FALSE)
+
 ##### 3. Loop over cropped scenes, process, and write TC output #####
 ## set file names for run
 tc.fn <- 'tc_cloud_free' ## for TC data -- tc_initial_test    tc_cloud_free
@@ -118,11 +146,15 @@ mc.fn <- 'mnd_key_cloud_free' ## for mound/cell ID key -- mnd_key_initial_test  
 setwd('/Users/Avril/Documents/krat_remote_sensing/C2L2_cropped_landsat45tm_scenes/')
 # files <- list.files(pattern="*.grd") ## to run with ALL scenes (causes some issues due to cloud masking step)
 # files <- read.table('/Users/Avril/Documents/krat_remote_sensing/C2L2_landsat_5_data_overviews/C2L2_intermediate_cloud_scenes.txt') ## scenes with <=60% cloud cover (n=574)
-files <- read.table('/Users/Avril/Documents/krat_remote_sensing/C2L2_landsat_5_data_overviews/C2L2_cloud_free_scenes.txt') ## scenes with 0% cloud cover (n=233)
-files$V1 <- paste0(files$V1,'_CROPPED.grd')
-files <- as.vector(files$V1)
+# files <- read.table('/Users/Avril/Documents/krat_remote_sensing/C2L2_landsat_5_data_overviews/C2L2_cloud_free_scenes.txt') ## scenes with 0% cloud cover (n=233)
 
-pdf(file='/Users/Avril/Desktop/test_cloud_free.pdf', width=8, height=8)
+## read in results of manual cloud checking to get list of scenes
+res <- read.csv('/Users/Avril/Documents/krat_remote_sensing/C2L2_landsat_5_data_overviews/C2L2_low_cloud_scenes_cloud_cover_notes.csv')
+table(res$usable) ## 365 / 460 scenes usable
+res <- res[which(res$usable == 1),]
+files <- as.vector(res$filename)
+
+pdf(file='/Users/Avril/Desktop/test_manual_cloud_free.pdf', width=8, height=8)
 par(mar=c(3.1,2.1,2.1,1.1), mgp=c(1.5,.75,0))
 
 OUT <- NULL
@@ -152,12 +184,12 @@ for(i in 1:length(files)){
   ## apply the Tasseled Cap transformation
   ls5.tc.cor <- tasseledCap(tc.cor.stack, sat='Landsat5TM')
   # par(mar=c(5.1,4.1,4.1,2.1))
-  # plot(ls5.tc.cor$greenness, xlab='UTM westing coordinate (m)', ylab='UTM northing coordinate (m)', bty='n', main=paste0(files[i],'\ngreenness'))
-  #   points(all.locs, pch=19, cex=0.2)
-  # plot(ls5.tc.cor$brightness, xlab='UTM westing coordinate (m)', ylab='UTM northing coordinate (m)', bty='n', main=paste0(files[i],'\nbrightness'))
-  #   points(all.locs, pch=19, cex=0.2)
-  # plot(ls5.tc.cor$wetness, xlab='UTM westing coordinate (m)', ylab='UTM northing coordinate (m)', bty='n', main=paste0(files[i],'\nwetness'))
-  #   points(all.locs, pch=19, cex=0.2)
+  plot(ls5.tc.cor$greenness, xlab='UTM westing coordinate (m)', ylab='UTM northing coordinate (m)', bty='n', main=paste0(files[i],'\ngreenness'))
+    points(all.locs, pch=19, cex=0.2)
+  plot(ls5.tc.cor$brightness, xlab='UTM westing coordinate (m)', ylab='UTM northing coordinate (m)', bty='n', main=paste0(files[i],'\nbrightness'))
+    points(all.locs, pch=19, cex=0.2)
+  plot(ls5.tc.cor$wetness, xlab='UTM westing coordinate (m)', ylab='UTM northing coordinate (m)', bty='n', main=paste0(files[i],'\nwetness'))
+    points(all.locs, pch=19, cex=0.2)
 
   # ## extract TC pixel data for mounds & surrounding pixels
   # ## for pixel mound is located in (buffer = ## meters);
