@@ -107,16 +107,16 @@ rm(ext, all_landsat_bands, crit_bands,
 # 
 #   print(i)
 # }
-
-
-## for scenes of interest, print cropped image for manual cloud-cover check and write information
-## for taking notes on image quality in .csv file
-setwd('/Users/Avril/Documents/krat_remote_sensing/')
-files <- read.table('/Users/Avril/Documents/krat_remote_sensing/C2L2_landsat_5_data_overviews/C2L2_low_cloud_scenes.txt') ## scenes with <= 20% cloud cover (n=460)
-raw.files <- files$V1
-files$V1 <- paste0(files$V1,'_CROPPED.grd')
-files <- as.vector(files$V1)
-scenes.avail <- read.csv('C2L2_landsat_5_data_overviews/landsat_tm_c2_l2_all_scenes_avail.csv') ## read in info to get cloud cover data for whole scenes
+# 
+# 
+# ## for scenes of interest, print cropped image for manual cloud-cover check and write information
+# ## for taking notes on image quality in .csv file
+# setwd('/Users/Avril/Documents/krat_remote_sensing/')
+# files <- read.table('/Users/Avril/Documents/krat_remote_sensing/C2L2_landsat_5_data_overviews/C2L2_low_cloud_scenes.txt') ## scenes with <= 20% cloud cover (n=460)
+# raw.files <- files$V1
+# files$V1 <- paste0(files$V1,'_CROPPED.grd')
+# files <- as.vector(files$V1)
+# scenes.avail <- read.csv('C2L2_landsat_5_data_overviews/landsat_tm_c2_l2_all_scenes_avail.csv') ## read in info to get cloud cover data for whole scenes
 
 # setwd('/Users/Avril/Documents/krat_remote_sensing/C2L2_cropped_landsat45tm_scenes/')
 # pdf('../C2L2_landsat_5_data_overviews/C2L2_low_cloud_scenes_raw_images.pdf', width=8, height=8)
@@ -137,275 +137,144 @@ scenes.avail <- read.csv('C2L2_landsat_5_data_overviews/landsat_tm_c2_l2_all_sce
 # write.csv(OUT, '../C2L2_landsat_5_data_overviews/C2L2_low_cloud_scenes_cloud_cover_notes.csv',
 #           row.names=FALSE)
 
-##### 3. Loop over cropped scenes, process, and write TC output #####
-## set file names for run
-tc.fn <- 'tc_cloud_free' ## for TC data -- tc_initial_test    tc_cloud_free
-mc.fn <- 'mnd_key_cloud_free' ## for mound/cell ID key -- mnd_key_initial_test    mnd_key_cloud_free
+# ##### 3. Loop over cropped scenes, process, and write TC output #####
+# ### ** Requires external drive for reading in metadata files ** ###
+# ## set file names for run
+# tc.fn <- 'tc_manual_cloudcheck' ## for TC data -- tc_manual_cloudcheck
+# mc.fn <- 'mnd_manual_cloudcheck' ## for mound/cell ID key -- mnd_manual_cloudcheck
+# 
+# setwd('/Users/Avril/Documents/krat_remote_sensing/C2L2_cropped_landsat45tm_scenes/')
+# 
+# ## read in results of manual cloud checking to get list of scenes to process
+# res <- read.csv('/Users/Avril/Documents/krat_remote_sensing/C2L2_landsat_5_data_overviews/C2L2_low_cloud_scenes_cloud_cover_notes.csv')
+# table(res$usable) ## 365 / 460 scenes checked are usable (i.e., no clouds over extent or processing errors)
+# res <- res[which(res$usable == 1),]
+# files <- as.vector(res$filename)
+# 
+# pdf(file=paste0('/Users/Avril/Desktop/',tc.fn,'.pdf'), width=8, height=8)
+# par(mar=c(3.1,2.1,2.1,1.1), mgp=c(1.5,.75,0))
+# 
+# OUT <- NULL
+# 
+# for(i in 1:length(files)){
+#   ls5.stack <- brick(files[i])
+#   plot.new()
+#   try(raster::plotRGB(ls5.stack, r=3, g=2, b=1, scale=ls5.stack@data@max[c(3,2,1)]), silent=TRUE)
+#   # try(raster::plotRGB(ls5.stack, r=3, g=2, b=1), silent=FALSE)
+#     graphics::legend('topleft', paste0(i,' - ',files[i]), bty='n', text.col='darkgreen')
+# 
+#   ## masking clouds using CLOUD_QA or QA band isn't very accurate;
+#   ## just manually review plots to check for cloud cover
+#   scene <- gsub('_CROPPED.grd', '', files[i])
+#   ## read in metadata for original scene
+#   d <- gsub('_CROPPED.grd', '', files[i])
+#   setwd(paste0('/Volumes/avril_data/krat_remote_sensing/C2L2_raw_landsat45tm_scene_downloads/',d,'/'))
+#   md.file <- list.files(pattern=glob2rx('*MTL.txt'), full.names=TRUE)
+#   m.data <- c2l2readMeta(md.file)
+#   setwd('/Users/Avril/Documents/krat_remote_sensing/C2L2_cropped_landsat45tm_scenes/')
+# 
+#   ## no corrections needed because C2L2 data are already in surface reflectance --
+#   ## can directly apply TC transformation
+# 
+#   ## manually select the Landsat5TM bands you need for Tasseled Cap (1,2,3,4,5,7)
+#   tc.cor.stack <- raster::subset(ls5.stack, subset=c('B1_sr','B2_sr','B3_sr','B4_sr','B5_sr','B7_sr'))
+#   ## apply the Tasseled Cap transformation
+#   ls5.tc.cor <- tasseledCap(tc.cor.stack, sat='Landsat5TM')
+#   # par(mar=c(5.1,4.1,4.1,2.1))
+#   plot(ls5.tc.cor$greenness, xlab='UTM westing coordinate (m)', ylab='UTM northing coordinate (m)', bty='n', main=paste0(files[i],'\ngreenness'))
+#     points(all.locs, pch=19, cex=0.2)
+#   plot(ls5.tc.cor$brightness, xlab='UTM westing coordinate (m)', ylab='UTM northing coordinate (m)', bty='n', main=paste0(files[i],'\nbrightness'))
+#     points(all.locs, pch=19, cex=0.2)
+#   plot(ls5.tc.cor$wetness, xlab='UTM westing coordinate (m)', ylab='UTM northing coordinate (m)', bty='n', main=paste0(files[i],'\nwetness'))
+#     points(all.locs, pch=19, cex=0.2)
+#   
+#   ## keep TC values for all cells in case you wanna use lag years (and there would be different data availability
+#   ## based on buffers in that case) -- buffer code available in archived version
+#   nc <- ncell(ls5.tc.cor)
+#   g.ness <- cbind(c(1:nc), as.data.frame(ls5.tc.cor$greenness))
+#   w.ness <- cbind(c(1:nc), as.data.frame(ls5.tc.cor$wetness))
+#   b.ness <- cbind(c(1:nc), as.data.frame(ls5.tc.cor$brightness))
+# 
+#   ## calculate other spectral indices
+#   oth.ind <- spectralIndices(ls5.stack, blue='B1_sr', green='B2_sr', red='B3_sr', nir='B4_sr', indices=c('NDVI', 'SAVI', 'MSAVI', 'NDWI'))
+#   ndvi <- cbind(c(1:nc), as.data.frame(oth.ind$NDVI))
+#   savi <- cbind(c(1:nc), as.data.frame(oth.ind$SAVI))
+#   msavi <- cbind(c(1:nc), as.data.frame(oth.ind$MSAVI))
+#   ndwi <- cbind(c(1:nc), as.data.frame(oth.ind$NDWI))
+# 
+#   ## define data to be saved and format for writing output
+#   scene.id <- m.data$SCENE_ID
+#   prod.id <- gsub('_CROPPED.grd', '', files[i])
+#   acq.date <- m.data$ACQUISITION_DATE
+#   path <- m.data$PATH_ROW[1]
+#   row <- m.data$PATH_ROW[2]
+#   doy <- as.numeric(strftime(acq.date, format='%j'))
+#   all.tc <- merge(x=g.ness, y=w.ness, by=c('c(1:nc)'))
+#   all.tc <- merge(x=all.tc, y=b.ness, by=c('c(1:nc)'))
+#   all.tc <- merge(x=all.tc, y=ndvi, by=c('c(1:nc)'))
+#   all.tc <- merge(x=all.tc, y=savi, by=c('c(1:nc)'))
+#   all.tc <- merge(x=all.tc, y=msavi, by=c('c(1:nc)'))
+#   all.tc <- merge(x=all.tc, y=ndwi, by=c('c(1:nc)'))
+#   all.tc$acq.date <- acq.date
+#   all.tc$doy <- doy
+#   all.tc$scene.id <- scene.id
+#   all.tc$prod.id <- prod.id
+#   all.tc$path <- path
+#   all.tc$row <- row
+#   all.tc$nrows <- ls5.tc.cor$brightness@nrows
+#   all.tc$ncols <- ls5.tc.cor$brightness@ncols
+#   colnames(all.tc)[1] <- 'cell.num'
+# 
+#   ## -- write to a file continuously to free up memory
+#   write.table(all.tc, file=paste0('../C2L2_tc_output_tables/C2L2_',tc.fn,'.csv'), quote=FALSE, append=TRUE,
+#               row.names=FALSE, sep=',', col.names=!file.exists(paste0('../C2L2_tc_output_tables/C2L2_',tc.fn,'.csv')))
+# 
+#   ## get cell number for each mound and save scene information
+#   mnd.cell.dat <- cbind(all.cells, (cellFromXY(ls5.tc.cor, all.locs)))
+#   colnames(mnd.cell.dat)[3] <- 'cell.num'
+#   mnd.cell.dat$acq.date <- acq.date
+#   mnd.cell.dat$doy <- doy
+#   mnd.cell.dat$scene.id <- scene.id
+#   mnd.cell.dat$prod.id <- prod.id
+#   mnd.cell.dat$path <- path
+#   mnd.cell.dat$row <- row
+# 
+#   ## -- write to a file continuously to free up memory
+#   write.table(mnd.cell.dat, paste0('../C2L2_tc_output_tables/C2L2_',mc.fn,'.csv'), quote=FALSE, append=TRUE,
+#               row.names=FALSE, sep=',', col.names=!file.exists(paste0('../C2L2_tc_output_tables/C2L2_',mc.fn,'.csv')))
+# 
+#   print(i/length(files))
+# }
+# dev.off()
 
-# setwd('/Volumes/avril_data/krat_remote_sensing/cropped_landsat45tm_scenes/')
-setwd('/Users/Avril/Documents/krat_remote_sensing/C2L2_cropped_landsat45tm_scenes/')
-# files <- list.files(pattern="*.grd") ## to run with ALL scenes (causes some issues due to cloud masking step)
-# files <- read.table('/Users/Avril/Documents/krat_remote_sensing/C2L2_landsat_5_data_overviews/C2L2_intermediate_cloud_scenes.txt') ## scenes with <=60% cloud cover (n=574)
-# files <- read.table('/Users/Avril/Documents/krat_remote_sensing/C2L2_landsat_5_data_overviews/C2L2_cloud_free_scenes.txt') ## scenes with 0% cloud cover (n=233)
-
-## read in results of manual cloud checking to get list of scenes
-res <- read.csv('/Users/Avril/Documents/krat_remote_sensing/C2L2_landsat_5_data_overviews/C2L2_low_cloud_scenes_cloud_cover_notes.csv')
-table(res$usable) ## 365 / 460 scenes usable
-res <- res[which(res$usable == 1),]
-files <- as.vector(res$filename)
-
-pdf(file='/Users/Avril/Desktop/test_manual_cloud_free.pdf', width=8, height=8)
-par(mar=c(3.1,2.1,2.1,1.1), mgp=c(1.5,.75,0))
-
-OUT <- NULL
-
-for(i in 1:length(files)){
-  ls5.stack <- brick(files[i])
-  plot.new()
-  try(raster::plotRGB(ls5.stack, r=3, g=2, b=1, scale=ls5.stack@data@max[c(3,2,1)]), silent=TRUE)
-  # try(raster::plotRGB(ls5.stack, r=3, g=2, b=1), silent=FALSE)
-    graphics::legend('topleft', paste0(i,' - ',files[i]), bty='n', text.col='darkgreen')
-
-  ## masking clouds using CLOUD_QA or QA band isn't very accurate;
-  ## just manually review plots to check for cloud cover
-  scene <- gsub('_CROPPED.grd', '', files[i])
-  ## read in metadata for original scene
-  d <- gsub('_CROPPED.grd', '', files[i])
-  setwd(paste0('/Volumes/avril_data/krat_remote_sensing/C2L2_raw_landsat45tm_scene_downloads/',d,'/'))
-  md.file <- list.files(pattern=glob2rx('*MTL.txt'), full.names=TRUE)
-  m.data <- c2l2readMeta(md.file)
-  setwd('/Users/Avril/Documents/krat_remote_sensing/C2L2_cropped_landsat45tm_scenes/')
-
-  ## no corrections needed because C2L2 data are already in surface reflectance --
-  ## can directly apply TC transformation
-
-  ## manually select the Landsat5TM bands you need for Tasseled Cap (1,2,3,4,5,7)
-  tc.cor.stack <- raster::subset(ls5.stack, subset=c('B1_sr','B2_sr','B3_sr','B4_sr','B5_sr','B7_sr'))
-  ## apply the Tasseled Cap transformation
-  ls5.tc.cor <- tasseledCap(tc.cor.stack, sat='Landsat5TM')
-  # par(mar=c(5.1,4.1,4.1,2.1))
-  plot(ls5.tc.cor$greenness, xlab='UTM westing coordinate (m)', ylab='UTM northing coordinate (m)', bty='n', main=paste0(files[i],'\ngreenness'))
-    points(all.locs, pch=19, cex=0.2)
-  plot(ls5.tc.cor$brightness, xlab='UTM westing coordinate (m)', ylab='UTM northing coordinate (m)', bty='n', main=paste0(files[i],'\nbrightness'))
-    points(all.locs, pch=19, cex=0.2)
-  plot(ls5.tc.cor$wetness, xlab='UTM westing coordinate (m)', ylab='UTM northing coordinate (m)', bty='n', main=paste0(files[i],'\nwetness'))
-    points(all.locs, pch=19, cex=0.2)
-
-  # ## extract TC pixel data for mounds & surrounding pixels
-  # ## for pixel mound is located in (buffer = ## meters);
-  # ## set buffer size
-  # b <- 78
-  # # ## median dispersal distances from birth to reproductive mound = 77.5 m (females) and 40 m (males)
-  # g.ness <- extract(ls5.tc.cor$greenness, all.locs, method='simple', df=TRUE, cellnumbers=TRUE)
-  # w.ness <- extract(ls5.tc.cor$wetness, all.locs, method='simple', df=TRUE, cellnumbers=TRUE, buffer=b)
-  # b.ness <- extract(ls5.tc.cor$brightness, all.locs, method='simple', df=TRUE, cellnumbers=TRUE, buffer=b)
-  # ## check TC output, just to be safe
-  # stopifnot(all(g.ness[,c(1,2)] == w.ness[,c(1,2)]), all(g.ness[,c(1,2)] == b.ness[,c(1,2)]))
-
-  ## plot what this buffer would extract
-  # plot(ls5.tc.cor$greenness, xlab='UTM westing coordinate (m)', ylab='UTM northing coordinate (m)', bty='n',
-  #      xlim=c(lo.x, hi.x), ylim=c(lo.y, hi.y), main='Buffer extracted\n(greenness values)')
-  #   points(all.locs, pch=19, cex=0.2)
-  #   r2 <- ls5.tc.cor$greenness
-  #   r2[setdiff(seq_len(ncell(r2)), unique(g.ness[,2]))] <- NA
-  #   r2[!is.na(r2)] <- 1
-  #   plot(rasterToPolygons(r2, dissolve=TRUE), add=TRUE, border='red', lwd=2)
-  ## maybe save data for focal pixels, then figure out which pixels are in the buffer zone, and save values for those,
-  ## with key linking cell numbers in buffer zone to corresponding focal pixels?
-  
-  ## actually, just keep TC values for all cells in case you wanna use lag years (and there would be different data availability
-  ## based on buffers in that case)
-  nc <- ncell(ls5.tc.cor)
-  g.ness <- cbind(c(1:nc), as.data.frame(ls5.tc.cor$greenness))
-  w.ness <- cbind(c(1:nc), as.data.frame(ls5.tc.cor$wetness))
-  b.ness <- cbind(c(1:nc), as.data.frame(ls5.tc.cor$brightness))
-
-  ## calculate other spectral indices
-  oth.ind <- spectralIndices(ls5.stack, blue='B1_sr', green='B2_sr', red='B3_sr', nir='B4_sr', indices=c('NDVI', 'SAVI', 'MSAVI', 'NDWI'))
-  ## if using a buffer
-  # ndvi <- extract(oth.ind$NDVI, all.locs, method='simple', df=TRUE, cellnumbers=TRUE, buffer=b)
-  # savi <- extract(oth.ind$SAVI, all.locs, method='simple', df=TRUE, cellnumbers=TRUE, buffer=b)
-  # msavi <- extract(oth.ind$MSAVI, all.locs, method='simple', df=TRUE, cellnumbers=TRUE, buffer=b)
-  # ndwi <- extract(oth.ind$NDWI, all.locs, method='simple', df=TRUE, cellnumbers=TRUE, buffer=b)
-  ## if saving all cell values
-  ndvi <- cbind(c(1:nc), as.data.frame(oth.ind$NDVI))
-  savi <- cbind(c(1:nc), as.data.frame(oth.ind$SAVI))
-  msavi <- cbind(c(1:nc), as.data.frame(oth.ind$MSAVI))
-  ndwi <- cbind(c(1:nc), as.data.frame(oth.ind$NDWI))
-
-  ## define data to be saved and format for writing output
-  scene.id <- m.data$SCENE_ID
-  prod.id <- gsub('_CROPPED.grd', '', files[i])
-  acq.date <- m.data$ACQUISITION_DATE
-  path <- m.data$PATH_ROW[1]
-  row <- m.data$PATH_ROW[2]
-  doy <- as.numeric(strftime(acq.date, format='%j'))
-  all.tc <- merge(x=g.ness, y=w.ness, by=c('c(1:nc)'))
-  all.tc <- merge(x=all.tc, y=b.ness, by=c('c(1:nc)'))
-  all.tc <- merge(x=all.tc, y=ndvi, by=c('c(1:nc)'))
-  all.tc <- merge(x=all.tc, y=savi, by=c('c(1:nc)'))
-  all.tc <- merge(x=all.tc, y=msavi, by=c('c(1:nc)'))
-  all.tc <- merge(x=all.tc, y=ndwi, by=c('c(1:nc)'))
-  all.tc$acq.date <- acq.date
-  all.tc$doy <- doy
-  all.tc$scene.id <- scene.id
-  all.tc$prod.id <- prod.id
-  all.tc$path <- path
-  all.tc$row <- row
-  all.tc$nrows <- ls5.tc.cor$brightness@nrows
-  all.tc$ncols <- ls5.tc.cor$brightness@ncols
-  colnames(all.tc)[1] <- 'cell.num'
-
-  ## -- write to a file continuously to free up memory
-  write.table(all.tc, file=paste0('../C2L2_tc_output_tables/C2L2_',tc.fn,'.csv'), quote=FALSE, append=TRUE,
-              row.names=FALSE, sep=',', col.names=!file.exists(paste0('../C2L2_tc_output_tables/C2L2_',tc.fn,'.csv')))
-
-  ## get cell number for each mound and save scene information
-  mnd.cell.dat <- cbind(all.cells, (cellFromXY(ls5.tc.cor, all.locs)))
-  colnames(mnd.cell.dat)[3] <- 'cell.num'
-  mnd.cell.dat$acq.date <- acq.date
-  mnd.cell.dat$doy <- doy
-  mnd.cell.dat$scene.id <- scene.id
-  mnd.cell.dat$prod.id <- prod.id
-  mnd.cell.dat$path <- path
-  mnd.cell.dat$row <- row
-
-  ## -- write to a file continuously to free up memory
-  write.table(mnd.cell.dat, paste0('../C2L2_tc_output_tables/C2L2_',mc.fn,'.csv'), quote=FALSE, append=TRUE,
-              row.names=FALSE, sep=',', col.names=!file.exists(paste0('../C2L2_tc_output_tables/C2L2_',mc.fn,'.csv')))
-
-  print(i/length(files))
-}
-dev.off()
-
-##### *3. Need to manually review test.pdf for cloud cover #####
-## (empty plots represent bricks that could not be plotted due to plotRGB scaling issue) ##
-## clouds in: 
-## 24 − LT05_L2SP_035038_19890906_20200916_02_T1_CROPPED.grd
-## 32 − LT05_L2SP_035038_19900402_20200916_02_T1_CROPPED.grd
-## 49 − LT05_L2SP_035038_19910320_20200915_02_T1_CROPPED.grd
-## 58 − LT05_L2SP_034038_19910601_20200915_02_T1_CROPPED.grd
-## (?) 59 − LT05_L2SP_035038_19910608_20200915_02_T1_CROPPED.grd
-## 63 − LT05_L2SP_034038_19910703_20200915_02_T1_CROPPED.grd
-## 69 − LT04_L2SP_035038_19910904_20200915_02_T1_CROPPED.grd
-## (?) 73 − LT05_L2SP_034038_19911023_20200915_02_T1_CROPPED.grd
-## (?) 79 − LT05_L2SP_034038_19920502_20200915_02_T2_CROPPED.grd
-## 86 − LT05_L2SP_034038_19920619_20200914_02_T1_CROPPED.grd
-## 92 − LT05_L2SP_034038_19920806_20200914_02_T1_CROPPED.grd
-## 94 − LT05_L2SP_035038_19920829_20200914_02_T2_CROPPED.grd
-## 109 − LT05_L2SP_035038_19930120_20200914_02_T1_CROPPED.grd
-## 120 − LT05_L2SP_035038_19930426_20200914_02_T1_CROPPED.grd
-## 123 − LT05_L2SP_034038_19930606_20200914_02_T1_CROPPED.grd
-## (?) 128 − LT05_L2SP_034038_19930724_20200913_02_T1_CROPPED.grd [stopped here for now]
-
-## for cloud-free scenes, corrupted info in:
-## 90, 92, 93, 103, 105, 107, 109, 110, 112, 113, 116, 119, 122, 156, 159, 166
-## 156, 159, 166 really weird - like they're not the correct location?
-remove <- c(90, 92, 93, 103, 105, 107, 109, 110, 112, 113, 116, 119, 122, 156, 159, 166)
-scenes.rm <- gsub('_CROPPED.grd', '', files[remove])
-
-##### Do some data viz for current run #####
+##### 4. Do some basic data viz and correlation checks for current run to check for issues #####
 setwd('/Users/Avril/Documents/krat_remote_sensing/C2L2_tc_output_tables/')
+
+tc.fn <- 'tc_manual_cloudcheck' ## for TC data -- tc_manual_cloudcheck
+mc.fn <- 'mnd_manual_cloudcheck' ## for mound/cell ID key -- mnd_manual_cloudcheck
 
 tc.dat <- read.csv(paste0('C2L2_',tc.fn,'.csv'))
 mc.key <- read.csv(paste0('C2L2_',mc.fn,'.csv'))
 
-## remove scenes with weird data (for cloud-free scenes, this really improves the outlier situation)
-tc.dat <- tc.dat[which(tc.dat$prod.id %notin% scenes.rm),]
-mc.key <- mc.key[which(mc.key$prod.id %notin% scenes.rm),]
-
-## for a single cell, plot trends in TC metrics over year
-temp <- tc.dat[which(tc.dat$cells == unique(tc.dat$cells)[1]),]
-temp$year <- as.numeric(do.call(rbind, strsplit(as.character(temp$acq.date), split='-', fixed=TRUE))[,1])
-plot(temp$doy, temp$greenness, pch=19, col=temp$year, cex=0.8)
-plot(temp$doy, temp$wetness, pch=19, col=temp$year, cex=0.8)
-plot(temp$doy, temp$brightness, pch=19, col=temp$year, cex=0.8)
-## and other indices
-plot(temp$doy, temp$NDVI, pch=19, col=temp$year, cex=0.8)
-plot(temp$doy, temp$SAVI, pch=19, col=temp$year, cex=0.8)
-plot(temp$doy, temp$MSAVI, pch=19, col=temp$year, cex=0.8)
-plot(temp$doy, temp$NDWI, pch=19, col=temp$year, cex=0.8)
-
-## compare with another cell
-temp1 <- tc.dat[which(tc.dat$cells == unique(tc.dat$cell)[300]),]
-temp1$year <- as.numeric(do.call(rbind, strsplit(as.character(temp1$acq.date), split='-', fixed=TRUE))[,1])
-plot(temp1$doy, temp1$greenness, pch=19, col=temp$year, cex=0.8)
-plot(temp1$doy, temp1$wetness, pch=19, col=temp$year, cex=0.8)
-plot(temp1$doy, temp1$brightness, pch=19, col=temp$year, cex=0.8)
-
-par(mfrow=c(1,2))
-plot(temp$doy, temp$greenness, pch=19, col=temp$year, cex=0.8)
-plot(temp1$doy, temp1$greenness, pch=19, col=temp$year, cex=0.8)
-plot(temp$doy, temp$wetness, pch=19, col=temp$year, cex=0.8)
-plot(temp1$doy, temp1$wetness, pch=19, col=temp$year, cex=0.8)
-plot(temp$doy, temp$brightness, pch=19, col=temp$year, cex=0.8)
-plot(temp1$doy, temp1$brightness, pch=19, col=temp$year, cex=0.8)
-
-## plot lines by year within a cell
-par(mfrow=c(1,1))
-palette.pals()
-cols <- palette.colors(n=length(unique(temp$year)), palette='Polychrome36', recycle=FALSE)
-plot(temp$doy, temp$greenness, col='transparent')
-temp <- temp[complete.cases(temp),]
-for(i in 1:length(unique(temp$year))){
-  sub <- temp[which(temp$year == unique(temp$year)[i]),]
-  sub <- sub[order(sub$doy),]
-  lines(x=sub$doy, y=sub$greenness, col=cols[i])
-}
-
 ## look for correlations among TC metrics and other indices
+## for a single cell in a single scene
+temp <- tc.dat[which(tc.dat$cell.num == unique(tc.dat$cell.num)[1]),]
 pdf('/Users/Avril/Desktop/single_scene_index_correlations.pdf', width=15, height=15)
-pairs(temp[,c(3:9)], col=alpha('dodgerblue3', 0.5))
+pairs(temp[,c(2:8)], col=alpha('dodgerblue3', 0.5))
 dev.off()
 
-## compare C2L2 values with old C1L1 TC values
-old.dat.tc <- read.csv('/Users/Avril/Documents/krat_remote_sensing/archive/all_C1L1_data_and_output/C1L1_tc_output_tables/tc_cloud_free.csv')
-old.dat.tc <- old.dat.tc[which(old.dat.tc$scene.id %in% tc.dat$scene.id),]
-pdf('/Users/Avril/Desktop/C1L1_v_C2L2_greenness.pdf', width=7, height=7)
-plot(old.dat.tc$greenness, tc.dat$greenness, col='transparent', xlab='C1L1 greenness', ylab='C2L2 greenness')
-for(i in unique(old.dat.tc$scene.id)){
-  old.sub <- old.dat.tc[which(old.dat.tc$scene.id == i),]
-  new.sub <- tc.dat[which(tc.dat$scene.id == i),]
-  combo <- merge(x=old.sub, y=new.sub, by='cells')
-  mod <- lm(combo$greenness.y ~ combo$greenness.x)
-  min.x <- min(combo$greenness.x)
-  max.x <- max(combo$greenness.x)
-  min.y <- ((mod$coefficients[2])*min.x)+mod$coefficients[1]
-  max.y <- ((mod$coefficients[2])*max.x)+mod$coefficients[1]
-  lines(x=c(min.x, max.x), y=c(min.y, max.y), col=alpha('springgreen4', 0.4))
-  # points(combo$greenness.x, combo$greenness.y, pch=19, col=alpha('springgreen4', 0.01))
-  print(i)
-}
+## a more comprehensive check with multiple scenes and cells, randomly sampled from all
+## data
+size <- 10000     ## number of cells to sample
+samps <- sample(1:nrow(tc.dat), size, replace=FALSE)
+temp <- tc.dat[samps,]
+pdf(paste0('/Users/Avril/Desktop/',size,'_randomcells_index_correlations.pdf'), width=15, height=15)
+pairs(temp[,c(2:8)], col=alpha('dodgerblue3', 0.2))
 dev.off()
-pdf('/Users/Avril/Desktop/C1L1_v_C2L2_wetness.pdf', width=7, height=7)
-plot(old.dat.tc$wetness, tc.dat$wetness, col='transparent', xlab='C1L1 wetness', ylab='C2L2 wetness')
-for(i in unique(old.dat.tc$scene.id)){
-  old.sub <- old.dat.tc[which(old.dat.tc$scene.id == i),]
-  new.sub <- tc.dat[which(tc.dat$scene.id == i),]
-  combo <- merge(x=old.sub, y=new.sub, by='cells')
-  mod <- lm(combo$wetness.y ~ combo$wetness.x)
-  min.x <- min(combo$wetness.x)
-  max.x <- max(combo$wetness.x)
-  min.y <- ((mod$coefficients[2])*min.x)+mod$coefficients[1]
-  max.y <- ((mod$coefficients[2])*max.x)+mod$coefficients[1]
-  lines(x=c(min.x, max.x), y=c(min.y, max.y), col=alpha('dodgerblue', 0.4))
-  # points(combo$wetness.x, combo$wetness.y, pch=19, col=alpha('dodgerblue', 0.01))
-  print(i)
-}
-dev.off()
-pdf('/Users/Avril/Desktop/C1L1_v_C2L2_brightness.pdf', width=7, height=7)
-plot(old.dat.tc$brightness, tc.dat$brightness, col='transparent', xlab='C1L1 brightness', ylab='C2L2 brightness')
-for(i in unique(old.dat.tc$scene.id)){
-  old.sub <- old.dat.tc[which(old.dat.tc$scene.id == i),]
-  new.sub <- tc.dat[which(tc.dat$scene.id == i),]
-  combo <- merge(x=old.sub, y=new.sub, by='cells')
-  mod <- lm(combo$brightness.y ~ combo$brightness.x)
-  min.x <- min(combo$brightness.x)
-  max.x <- max(combo$brightness.x)
-  min.y <- ((mod$coefficients[2])*min.x)+mod$coefficients[1]
-  max.y <- ((mod$coefficients[2])*max.x)+mod$coefficients[1]
-  lines(x=c(min.x, max.x), y=c(min.y, max.y), col=alpha('tan4', 0.4))
-  # points(combo$brightness.x, combo$brightness.y, pch=19, col=alpha('tan4', .01))
-  print(i)
-}
-dev.off()
+
+## quantify correlations among indices
+cors <- abs(cor(temp[,c(2:8)]))
+
+### NDVI, SAVI, MSAVI all > 0.95 with greenness.
+### NDWI is close (wetness vs. brightness is closer!), will need to check for 
+### multicollinearity in all models anyway.
