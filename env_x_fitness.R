@@ -13,6 +13,7 @@ source('/Users/Avril/Documents/krat_remote_sensing/krat_remote_sensing_scripts/c
 g.col <- 'forestgreen'
 w.col <- 'deepskyblue2'
 b.col <- 'tan4'
+n.col <- 'turquoise4'
 
 ##### Read in population (Peter's) data #####
 pop.dat <- read.csv('/Users/Avril/Documents/krat_genetics/preseq_sample_information/KRATP.csv')
@@ -25,6 +26,10 @@ ages <- j.dat[,c('id','birthyear','deathyear')]
 ages$age <- ages$deathyear - ages$birthyear
 ages <- ages[,c(1,4)]
 
+## read in 1 cropped scene to get background image and cell #s (rows, columns)
+ls5.stack <- brick('/Users/Avril/Documents/krat_remote_sensing/C2L2_cropped_landsat45tm_scenes/LT05_L2SP_035038_20020622_20200905_02_T1_CROPPED.grd')
+raster::plotRGB(ls5.stack, r=3, g=2, b=1, scale=ls5.stack@data@max[c(3,2,1)], margins=FALSE)
+
 ##### Read in manual mound:cell assignments (n=26) #####
 ### >> also needed to re-name unique mounds that were all labeled 'R2' in the original database 
 man.ass <- read.csv('/Users/Avril/Documents/krat_remote_sensing/archive/sorting_out_mound_names/manual_mound_cell_assignments.csv')
@@ -33,6 +38,35 @@ r2 <- man.ass[man.ass$terr=='R2',]
 for(i in 1:nrow(r2)){
   pop.dat[which(pop.dat$lat == r2$lat[i] & pop.dat$long == r2$long[i]), 'terr'] <- r2$new.db.name[i]
 }
+
+##### Read in mound coordinates #####
+mnd.locs <- read.csv('/Users/Avril/Documents/krat_remote_sensing/intermediate_data/mound_GPS_coords_n188.csv')
+mnd.locs$ID <- 1:nrow(mnd.locs) ## add column for later matching up with TC extracted pixel values
+mnd.cells <- mnd.locs[,c(4,5)] ## save ID and db.name for saving cell names later
+mnd.locs <- mnd.locs[c('long','lat','database.name')] ## rearrange/rename to match man.locs below
+colnames(mnd.locs)[3] <- 'terr'
+coordinates(mnd.locs) <- c('long','lat') ## converts to SpatialPointsDataFrame object for plotting
+proj4string(mnd.locs) <- CRS("+proj=longlat +datum=WGS84") ## still in degrees
+mnd.locs <- sp::spTransform(mnd.locs, CRS("+proj=utm +zone=12 +ellps=WGS84 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs")) ## now in meters
+### manual mound:cell assignments
+man.ass <- read.csv('/Users/Avril/Documents/krat_remote_sensing/archive/sorting_out_mound_names/manual_mound_cell_assignments.csv')
+man.cells <- man.ass[,c('terr','new.db.name','cell')]
+man.cells[!is.na(man.cells$new.db.name), 'terr'] <- man.cells[!is.na(man.cells$new.db.name), 'new.db.name']
+man.cells$ID <- c((max(mnd.cells$ID)+1):(max(mnd.cells$ID)+nrow(man.cells)))
+colnames(man.cells)[1] <- 'database.name'
+man.cells <- man.cells[,c('database.name','ID')]
+man.locs <- as.data.frame(xyFromCell(ls5.stack, man.ass$cell))
+man.locs$terr <- man.ass$terr
+coordinates(man.locs) <- c('x','y') ## already in meters
+proj4string(man.locs)<- CRS("+proj=utm +zone=12 +ellps=WGS84 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs")
+all.locs <- rbind(mnd.locs, man.locs)
+
+## set extent for all analyses
+lo.x <- 663500
+hi.x <- 665600
+lo.y <- 3497000
+hi.y <- 3499750
+ext <- extent(lo.x, hi.x, lo.y, hi.y)
 
 ##### Read in TC and other index results #####
 ## set file names to be read in 
@@ -50,19 +84,27 @@ tc.dat <- read.csv(paste0('/Users/Avril/Documents/krat_remote_sensing/C2L2_tc_ou
 tc.dat <- tc.dat[,-c(5:7)]
 mc.key <- read.csv(paste0('/Users/Avril/Documents/krat_remote_sensing/C2L2_tc_output_tables/C2L2_',mc.fn,'.csv'))
 
+## scale and center TC + NDWI
+tc.dat$z.g <- scale(tc.dat$greenness, scale=TRUE, center=TRUE)
+tc.dat$z.b <- scale(tc.dat$brightness, scale=TRUE, center=TRUE)
+tc.dat$z.w <- scale(tc.dat$wetness, scale=TRUE, center=TRUE)
+tc.dat$z.n <- scale(tc.dat$NDWI, scale=TRUE, center=TRUE)
+
 ## get list of mound:cell associations
 mounds.cells.only <- mc.key[,c('database.name','cell.num')]
 mounds.cells.only <- mounds.cells.only[!duplicated(mounds.cells.only),]
 
 ##### Define seasons #####
 tc.dat$year <- do.call(rbind, strsplit(tc.dat$acq.date, split='-'))[,1]
-## define brood-year lag months (e.g., for indivs born in 2000, lag.year would be set to 2000 for June 1999-May 2000)
+## define brood-year lag months (e.g., for indivs born in 2000, lag.year would be set to 2000 for July 1999-June 2000)
 ## i.e., abiotic data from the months of June - May are predicting survival/fitness for indivs presumably born between those months
 tc.dat$year <- as.numeric(tc.dat$year)
-tc.dat$lag.year <- as.numeric(tc.dat$year)
 tc.dat$month <- do.call(rbind, strsplit(tc.dat$acq.date, split='-'))[,2]
 tc.dat$month <- as.numeric(tc.dat$month)
-tc.dat[which(tc.dat$month %in% c(6:12)), 'lag.year'] <- tc.dat[which(tc.dat$month %in% c(6:12)), 'year'] + 1
+tc.dat[which(tc.dat$month %in% c(7:12)), 'half.year.lag'] <- tc.dat[which(tc.dat$month %in% c(7:12)), 'year'] + 1
+tc.dat[which(tc.dat$month %in% c(1:6)), 'half.year.lag'] <- tc.dat[which(tc.dat$month %in% c(1:6)), 'year']
+tc.dat$one.year.lag <- tc.dat$year+1
+
 
 ### two seasonal options:
 ## (1) define seasons by quarters (1=spring, 2=summer, 3=fall, 4=winter)
@@ -71,10 +113,10 @@ tc.dat[which(tc.dat$month %in% c(4,5,6)), 'month.szn'] <- 2
 tc.dat[which(tc.dat$month %in% c(7,8,9)), 'month.szn'] <- 3
 tc.dat[which(tc.dat$month %in% c(10,11,12)), 'month.szn'] <- 4
 
-## (2) define seasons by expected precip (1=June-August, 2=Dec-March, 0=outside these months)
-tc.dat[which(tc.dat$month %in% c(6,7,8)), 'weather.szn'] <- 1
+## (2) define seasons by expected precip (1=July-August, 2=Dec-March, 0=outside these months)
+tc.dat[which(tc.dat$month %in% c(7,8)), 'weather.szn'] <- 1
 tc.dat[which(tc.dat$month %in% c(12,1,2,3)), 'weather.szn'] <- 2
-tc.dat[which(tc.dat$month %in% c(4,5,9,10,11)), 'weather.szn'] <- 0
+tc.dat[which(tc.dat$month %in% c(4,5,6,9,10,11)), 'weather.szn'] <- 0
 
 ## examine variation in TC metrics across months and different seasonal options -- not sure that this was very helpful?
 # pdf('/Users/Avril/Desktop/tc_metric_variation_across_intervals.pdf', width=6, height=15)
@@ -93,276 +135,1005 @@ tc.dat[which(tc.dat$month %in% c(4,5,9,10,11)), 'weather.szn'] <- 0
 # }
 # dev.off()
 
-## read in 1 cropped scene to get background image and cell #s (rows, columns)
-ls5.stack <- brick('/Users/Avril/Documents/krat_remote_sensing/C2L2_cropped_landsat45tm_scenes/LT05_L2SP_035038_20020622_20200905_02_T1_CROPPED.grd')
-raster::plotRGB(ls5.stack, r=3, g=2, b=1, scale=ls5.stack@data@max[c(3,2,1)], margins=FALSE)
-
 ##### Get number of offspring recorded per mound per year and assign to cells in the raster #####
-## >> relies on 'offspring' == 1 designation to assign offspring to the mound where recorded;
-## >> does not consider any pedigree information (e.g., where individual ID'ed as mom was sampled)
+## >> relies on 'offspring' == 1 designation in Peter's data to assign offspring to the mound where 
+## >> recorded; does not consider any pedigree information (e.g., where individual ID'ed as mom was sampled)
+## 
+## >> pop.dat              == Peter's data
+## >> j.dat                == J's data
+## >> tc.dat               == environmental data
+## >> mounds.cells.only    == mound:cell assignments (1:1)
+
 OUT <- NULL
 for(y in unique(pop.dat$year)){
-  sub <- pop.dat[pop.dat$year == y,] ## subset to year
-  off <- sub[sub$offspring == 1,] ## get information for all offspring first recorded in that year
-  off.ages <- ages[which(ages$id %in% off$id),]
-  off <- merge(off, off.ages, by='id')
+  sub <- pop.dat[pop.dat$year == y,]              ## subset to year
+  off <- sub[sub$offspring == 1,]                 ## get information for all offspring first recorded in that year
+  off.ages <- ages[which(ages$id %in% off$id),]   ## get lifespan of offspring
+  off <- merge(off, off.ages, by='id')            ## add lifespan data to dataframe
   OUT <- rbind(OUT, off)
 }
 off <- OUT
-off <- off[which(off$year <= 2005),]
+off <- off[which(off$year <= 2005),] ## only keep offspring born in or before 2005
 colnames(off)[6] <- 'database.name'
 temp <- mc.key[,c('database.name','cell.num')]
 temp <- temp[!duplicated(temp),] ## 214 entries, confirming mounds are always assigned to the same cell # across scenes
 off <- merge(off, temp, by='database.name') ## combine mound/offspring information with cell IDs
-# hist(off[which(off$database.name %notin% temp$database.name), 'year'], xlab='Year', main='Mounds unassigned to cells')
-# unique(off[which(off$database.name %notin% temp$database.name), 'database.name'])
-# unique(pop.dat[which(pop.dat$terr %notin% temp$database.name), 'terr'])
-off <- off[order(off$year),]
+off <- off[order(off$year),] ## order by year of birth
 
 ##### For each year and each cell, summarize mound and offspring information for later random sampling
 ## (# observed at that mound, # surviving > 0 years, average age)
 OUT <- NULL
-for(y in unique(off$year)){ ## for each year,
+for(y in unique(off$year)){                ## for each year,
   sub <- off[off$year == y,]
-  for(i in unique(sub$cell.num)){ ## and for each cell with offspring recorded in that year,
+  for(i in unique(sub$cell.num)){          ## and for each cell with offspring recorded in that year,
     temp <- sub[sub$cell.num == i,]
-    for(j in unique(temp$database.name)){
+    for(j in unique(temp$database.name)){  ## and for each mound in that cell,
       temp1 <- temp[temp$database.name == j,]
       stopifnot(nrow(temp1) == length(unique(temp1$id))) ## make sure no IDs show up twice
-      num.off <- nrow(temp1) ## number of offspring recorded at that mound in that year
-      num.surv <- nrow(temp1[which(temp1$age > 0),]) ## number of offspring "" surviving to 1 year
-      avg.age <- mean(temp1$age) ## average age at death for offspring recorded at that mound in that year
+      num.off <- nrow(temp1)                             ## number of offspring recorded at that mound in that year
+      num.surv <- nrow(temp1[which(temp1$age > 0),])     ## number of offspring "" surviving to 1 year
+      avg.age <- mean(temp1$age)                         ## average age at death for offspring recorded at that mound in that year
       save <- c(i, j, y, num.off, num.surv, avg.age)
       OUT <- rbind(OUT, save)
     }
   }
 }
+## mnd.offs contains summary data for each mound in each year with cell #s saved
 mnd.offs <- as.data.frame(OUT, row.names = NA)
 colnames(mnd.offs) <- c('cell.num','database.name','year','num.off','num.surv','avg.age')
 mnd.offs$num.off <- as.numeric(mnd.offs$num.off)
 mnd.offs$num.surv <- as.numeric(mnd.offs$num.surv)
 mnd.offs$avg.age <- as.numeric(mnd.offs$avg.age)
+## calculate how many cells had multiple mounds with offspring in each year
+CT <- NULL
+for(y in unique(mnd.offs$year)){
+  sub <- mnd.offs[mnd.offs$year == y,]
+  single.mnds <- length(unique(names(table(sub$cell.num)[which(table(sub$cell.num) == 1)])))
+  mult.mnds <- length(unique(names(table(sub$cell.num)[which(table(sub$cell.num) > 1)])))
+  save <- c(as.numeric(y), single.mnds, mult.mnds)
+  CT <- rbind(CT, save)
+}
+sum(CT[,2]) ## number of cells where only 1 mound was recorded with offspring in exactly 1 year
+sum(CT[,3]) ## number of cells where only 1 mound was recorded with offspring in at least 1 year (may be recorded for multiple years)
 
 ##### For each year and each cell, randomly select one mound with offspring recorded,
 ## add TC information for focal cell
-sub.tc.dat <- tc.dat[,c(1:4,10,17:21)] ## subset TC information to just keep relevant bits
-OUT <- NULL
-for(y in unique(mnd.offs$year)){
-  print(y)
-  sub <- mnd.offs[mnd.offs$year == y,]
-  for(i in unique(sub$cell.num)){
-    temp <- sub[which(sub$cell.num == i),]
-    mnd <- sample(temp$database.name, 1) ## randomly select mound
-    save <- temp[temp$database.name == mnd,] ## save the information for that mound
-    tc.temp <- sub.tc.dat[which(sub.tc.dat$cell.num == i & sub.tc.dat$year == y),] ## and save relevant TC information
-    ## save annual information (number of scenes/observations, annual averages)
-    save$num.tc.obs <- nrow(tc.temp)
-    save$ann.mean.g <- mean(tc.temp$greenness, na.rm=TRUE)
-    save$ann.mean.w <- mean(tc.temp$wetness, na.rm=TRUE)
-    save$ann.mean.b <- mean(tc.temp$brightness, na.rm=TRUE)
-    ## save month-based season data for each of 4 seasons
-    save$month.szn.1.obs <- nrow(tc.temp[which(tc.temp$month.szn == 1),])
-    save$month.szn.1.g <- mean(tc.temp[which(tc.temp$month.szn == 1), 'greenness'], na.rm=TRUE)
-    save$month.szn.1.w <- mean(tc.temp[which(tc.temp$month.szn == 1), 'wetness'], na.rm=TRUE)
-    save$month.szn.1.b <- mean(tc.temp[which(tc.temp$month.szn == 1), 'brightness'], na.rm=TRUE)
-    save$month.szn.2.obs <- nrow(tc.temp[which(tc.temp$month.szn == 2),])
-    save$month.szn.2.g <- mean(tc.temp[which(tc.temp$month.szn == 2), 'greenness'], na.rm=TRUE)
-    save$month.szn.2.w <- mean(tc.temp[which(tc.temp$month.szn == 2), 'wetness'], na.rm=TRUE)
-    save$month.szn.2.b <- mean(tc.temp[which(tc.temp$month.szn == 2), 'brightness'], na.rm=TRUE)
-    save$month.szn.3.obs <- nrow(tc.temp[which(tc.temp$month.szn == 3),])
-    save$month.szn.3.g <- mean(tc.temp[which(tc.temp$month.szn == 3), 'greenness'], na.rm=TRUE)
-    save$month.szn.3.w <- mean(tc.temp[which(tc.temp$month.szn == 3), 'wetness'], na.rm=TRUE)
-    save$month.szn.3.b <- mean(tc.temp[which(tc.temp$month.szn == 3), 'brightness'], na.rm=TRUE)
-    save$month.szn.4.obs <- nrow(tc.temp[which(tc.temp$month.szn == 4),])
-    save$month.szn.4.g <- mean(tc.temp[which(tc.temp$month.szn == 4), 'greenness'], na.rm=TRUE)
-    save$month.szn.4.w <- mean(tc.temp[which(tc.temp$month.szn == 4), 'wetness'], na.rm=TRUE)
-    save$month.szn.4.b <- mean(tc.temp[which(tc.temp$month.szn == 4), 'brightness'], na.rm=TRUE)
-    ## save weather-based season data for each of 3 seasons
-    save$weather.szn.0.obs <- nrow(tc.temp[which(tc.temp$weather.szn == 0),])
-    save$weather.szn.0.g <- mean(tc.temp[which(tc.temp$weather.szn == 0), 'greenness'], na.rm=TRUE)
-    save$weather.szn.0.w <- mean(tc.temp[which(tc.temp$weather.szn == 0), 'wetness'], na.rm=TRUE)
-    save$weather.szn.0.b <- mean(tc.temp[which(tc.temp$weather.szn == 0), 'brightness'], na.rm=TRUE)
-    save$weather.szn.1.obs <- nrow(tc.temp[which(tc.temp$weather.szn == 1),])
-    save$weather.szn.1.g <- mean(tc.temp[which(tc.temp$weather.szn == 1), 'greenness'], na.rm=TRUE)
-    save$weather.szn.1.w <- mean(tc.temp[which(tc.temp$weather.szn == 1), 'wetness'], na.rm=TRUE)
-    save$weather.szn.1.b <- mean(tc.temp[which(tc.temp$weather.szn == 1), 'brightness'], na.rm=TRUE)
-    save$weather.szn.2.obs <- nrow(tc.temp[which(tc.temp$weather.szn == 2),])
-    save$weather.szn.2.g <- mean(tc.temp[which(tc.temp$weather.szn == 2), 'greenness'], na.rm=TRUE)
-    save$weather.szn.2.w <- mean(tc.temp[which(tc.temp$weather.szn == 2), 'wetness'], na.rm=TRUE)
-    save$weather.szn.2.b <- mean(tc.temp[which(tc.temp$weather.szn == 2), 'brightness'], na.rm=TRUE)
-    OUT <- rbind(OUT, save)
-  }
-}
-random.mnd.tc.year <- as.data.frame(OUT)
-write.csv(random.mnd.tc.year, '../intermediate_data/random_mound_data_using_year.csv', row.names = FALSE)
+sub.tc.dat <- tc.dat[,c(1:5,7,10,14:23)] ## subset TC information to just keep relevant bits:
+## cell # / TC + NDWI / doy / path / year / month / 6-month lag year / 1-year lag year / month season / weather season
 
-## same as above, but using lag year instead of year
-# OUT <- NULL
+# ##### Set up for 3 different lags and using z-transformed index values #####
+# ## set up where to save results for:
+# OUT1 <- NULL ## no lag
+# OUT2 <- NULL ## 6-month lag
+# OUT3 <- NULL ## 1-year lag
 # for(y in unique(mnd.offs$year)){
 #   print(y)
 #   sub <- mnd.offs[mnd.offs$year == y,]
-#   for(i in unique(sub$cell.num)){
-#     temp <- sub[which(sub$cell.num == i),]
-#     mnd <- sample(temp$database.name, 1) ## randomly select mound
-#     save <- temp[temp$database.name == mnd,] ## save the information for that mound
-#     tc.temp <- sub.tc.dat[which(sub.tc.dat$cell.num == i & sub.tc.dat$lag.year == y),] ## and save relevant TC information
+#   ct <- 1
+#   cells <- unique(sub$cell.num)
+#   for(i in cells){
+#     print(ct/nrow(sub))
+#     temp <- sub[which(sub$cell.num == i),]    ## subset to all mounds in cell
+#     mnd <- sample(temp$database.name, 1)      ## randomly select mound
+#     save <- temp[temp$database.name == mnd,]  ## save the information for that mound
+#     save.1 <- save
+#     save.2 <- save
+#     save.3 <- save
+#     ## save relevant environmental information for each lag approach
+#     tc.temp.nolag <- sub.tc.dat[which(sub.tc.dat$cell.num == i & sub.tc.dat$year == y),]
+#     tc.temp.6molag <- sub.tc.dat[which(sub.tc.dat$cell.num == i & sub.tc.dat$half.year.lag == y),]
+#     tc.temp.1yearlag <- sub.tc.dat[which(sub.tc.dat$cell.num == i & sub.tc.dat$one.year.lag == y),]
+#     
+#     ## No lag
 #     ## save annual information (number of scenes/observations, annual averages)
-#     save$num.tc.obs <- nrow(tc.temp)
-#     save$ann.mean.g <- mean(tc.temp$greenness, na.rm=TRUE)
-#     save$ann.mean.w <- mean(tc.temp$wetness, na.rm=TRUE)
-#     save$ann.mean.b <- mean(tc.temp$brightness, na.rm=TRUE)
+#     save.1$num.obs <- nrow(tc.temp.nolag)
+#     save.1$ann.mean.g <- mean(tc.temp.nolag$z.g, na.rm=TRUE)
+#     save.1$ann.mean.w <- mean(tc.temp.nolag$z.w, na.rm=TRUE)
+#     save.1$ann.mean.b <- mean(tc.temp.nolag$z.b, na.rm=TRUE)
+#     save.1$ann.mean.n <- mean(tc.temp.nolag$z.n, na.rm=TRUE)
 #     ## save month-based season data for each of 4 seasons
-#     save$month.szn.1.obs <- nrow(tc.temp[which(tc.temp$month.szn == 1),])
-#     save$month.szn.1.g <- mean(tc.temp[which(tc.temp$month.szn == 1), 'greenness'], na.rm=TRUE)
-#     save$month.szn.1.w <- mean(tc.temp[which(tc.temp$month.szn == 1), 'wetness'], na.rm=TRUE)
-#     save$month.szn.1.b <- mean(tc.temp[which(tc.temp$month.szn == 1), 'brightness'], na.rm=TRUE)
-#     save$month.szn.2.obs <- nrow(tc.temp[which(tc.temp$month.szn == 2),])
-#     save$month.szn.2.g <- mean(tc.temp[which(tc.temp$month.szn == 2), 'greenness'], na.rm=TRUE)
-#     save$month.szn.2.w <- mean(tc.temp[which(tc.temp$month.szn == 2), 'wetness'], na.rm=TRUE)
-#     save$month.szn.2.b <- mean(tc.temp[which(tc.temp$month.szn == 2), 'brightness'], na.rm=TRUE)
-#     save$month.szn.3.obs <- nrow(tc.temp[which(tc.temp$month.szn == 3),])
-#     save$month.szn.3.g <- mean(tc.temp[which(tc.temp$month.szn == 3), 'greenness'], na.rm=TRUE)
-#     save$month.szn.3.w <- mean(tc.temp[which(tc.temp$month.szn == 3), 'wetness'], na.rm=TRUE)
-#     save$month.szn.3.b <- mean(tc.temp[which(tc.temp$month.szn == 3), 'brightness'], na.rm=TRUE)
-#     save$month.szn.4.obs <- nrow(tc.temp[which(tc.temp$month.szn == 4),])
-#     save$month.szn.4.g <- mean(tc.temp[which(tc.temp$month.szn == 4), 'greenness'], na.rm=TRUE)
-#     save$month.szn.4.w <- mean(tc.temp[which(tc.temp$month.szn == 4), 'wetness'], na.rm=TRUE)
-#     save$month.szn.4.b <- mean(tc.temp[which(tc.temp$month.szn == 4), 'brightness'], na.rm=TRUE)
+#     save.1$month.szn.1.obs <- nrow(tc.temp.nolag[which(tc.temp.nolag$month.szn == 1),])
+#     save.1$month.szn.1.g <- mean(tc.temp.nolag[which(tc.temp.nolag$month.szn == 1), 'z.g'], na.rm=TRUE)
+#     save.1$month.szn.1.w <- mean(tc.temp.nolag[which(tc.temp.nolag$month.szn == 1), 'z.w'], na.rm=TRUE)
+#     save.1$month.szn.1.b <- mean(tc.temp.nolag[which(tc.temp.nolag$month.szn == 1), 'z.b'], na.rm=TRUE)
+#     save.1$month.szn.1.n <- mean(tc.temp.nolag[which(tc.temp.nolag$month.szn == 1), 'z.n'], na.rm=TRUE)
+#     save.1$month.szn.2.obs <- nrow(tc.temp.nolag[which(tc.temp.nolag$month.szn == 2),])
+#     save.1$month.szn.2.g <- mean(tc.temp.nolag[which(tc.temp.nolag$month.szn == 2), 'z.g'], na.rm=TRUE)
+#     save.1$month.szn.2.w <- mean(tc.temp.nolag[which(tc.temp.nolag$month.szn == 2), 'z.w'], na.rm=TRUE)
+#     save.1$month.szn.2.b <- mean(tc.temp.nolag[which(tc.temp.nolag$month.szn == 2), 'z.b'], na.rm=TRUE)
+#     save.1$month.szn.2.n <- mean(tc.temp.nolag[which(tc.temp.nolag$month.szn == 2), 'z.n'], na.rm=TRUE)
+#     save.1$month.szn.3.obs <- nrow(tc.temp.nolag[which(tc.temp.nolag$month.szn == 3),])
+#     save.1$month.szn.3.g <- mean(tc.temp.nolag[which(tc.temp.nolag$month.szn == 3), 'z.g'], na.rm=TRUE)
+#     save.1$month.szn.3.w <- mean(tc.temp.nolag[which(tc.temp.nolag$month.szn == 3), 'z.w'], na.rm=TRUE)
+#     save.1$month.szn.3.b <- mean(tc.temp.nolag[which(tc.temp.nolag$month.szn == 3), 'z.b'], na.rm=TRUE)
+#     save.1$month.szn.3.n <- mean(tc.temp.nolag[which(tc.temp.nolag$month.szn == 3), 'z.n'], na.rm=TRUE)
+#     save.1$month.szn.4.obs <- nrow(tc.temp.nolag[which(tc.temp.nolag$month.szn == 4),])
+#     save.1$month.szn.4.g <- mean(tc.temp.nolag[which(tc.temp.nolag$month.szn == 4), 'z.g'], na.rm=TRUE)
+#     save.1$month.szn.4.w <- mean(tc.temp.nolag[which(tc.temp.nolag$month.szn == 4), 'z.w'], na.rm=TRUE)
+#     save.1$month.szn.4.b <- mean(tc.temp.nolag[which(tc.temp.nolag$month.szn == 4), 'z.b'], na.rm=TRUE)
+#     save.1$month.szn.4.n <- mean(tc.temp.nolag[which(tc.temp.nolag$month.szn == 4), 'z.n'], na.rm=TRUE)
 #     ## save weather-based season data for each of 3 seasons
-#     save$weather.szn.0.obs <- nrow(tc.temp[which(tc.temp$weather.szn == 0),])
-#     save$weather.szn.0.g <- mean(tc.temp[which(tc.temp$weather.szn == 0), 'greenness'], na.rm=TRUE)
-#     save$weather.szn.0.w <- mean(tc.temp[which(tc.temp$weather.szn == 0), 'wetness'], na.rm=TRUE)
-#     save$weather.szn.0.b <- mean(tc.temp[which(tc.temp$weather.szn == 0), 'brightness'], na.rm=TRUE)
-#     save$weather.szn.1.obs <- nrow(tc.temp[which(tc.temp$weather.szn == 1),])
-#     save$weather.szn.1.g <- mean(tc.temp[which(tc.temp$weather.szn == 1), 'greenness'], na.rm=TRUE)
-#     save$weather.szn.1.w <- mean(tc.temp[which(tc.temp$weather.szn == 1), 'wetness'], na.rm=TRUE)
-#     save$weather.szn.1.b <- mean(tc.temp[which(tc.temp$weather.szn == 1), 'brightness'], na.rm=TRUE)
-#     save$weather.szn.2.obs <- nrow(tc.temp[which(tc.temp$weather.szn == 2),])
-#     save$weather.szn.2.g <- mean(tc.temp[which(tc.temp$weather.szn == 2), 'greenness'], na.rm=TRUE)
-#     save$weather.szn.2.w <- mean(tc.temp[which(tc.temp$weather.szn == 2), 'wetness'], na.rm=TRUE)
-#     save$weather.szn.2.b <- mean(tc.temp[which(tc.temp$weather.szn == 2), 'brightness'], na.rm=TRUE)
-#     OUT <- rbind(OUT, save)
+#     save.1$weather.szn.0.obs <- nrow(tc.temp.nolag[which(tc.temp.nolag$weather.szn == 0),])
+#     save.1$weather.szn.0.g <- mean(tc.temp.nolag[which(tc.temp.nolag$weather.szn == 0), 'z.g'], na.rm=TRUE)
+#     save.1$weather.szn.0.w <- mean(tc.temp.nolag[which(tc.temp.nolag$weather.szn == 0), 'z.w'], na.rm=TRUE)
+#     save.1$weather.szn.0.b <- mean(tc.temp.nolag[which(tc.temp.nolag$weather.szn == 0), 'z.b'], na.rm=TRUE)
+#     save.1$weather.szn.0.n <- mean(tc.temp.nolag[which(tc.temp.nolag$weather.szn == 0), 'z.n'], na.rm=TRUE)
+#     save.1$weather.szn.1.obs <- nrow(tc.temp.nolag[which(tc.temp.nolag$weather.szn == 1),])
+#     save.1$weather.szn.1.g <- mean(tc.temp.nolag[which(tc.temp.nolag$weather.szn == 1), 'z.g'], na.rm=TRUE)
+#     save.1$weather.szn.1.w <- mean(tc.temp.nolag[which(tc.temp.nolag$weather.szn == 1), 'z.w'], na.rm=TRUE)
+#     save.1$weather.szn.1.b <- mean(tc.temp.nolag[which(tc.temp.nolag$weather.szn == 1), 'z.b'], na.rm=TRUE)
+#     save.1$weather.szn.1.n <- mean(tc.temp.nolag[which(tc.temp.nolag$weather.szn == 1), 'z.n'], na.rm=TRUE)
+#     save.1$weather.szn.2.obs <- nrow(tc.temp.nolag[which(tc.temp.nolag$weather.szn == 2),])
+#     save.1$weather.szn.2.g <- mean(tc.temp.nolag[which(tc.temp.nolag$weather.szn == 2), 'z.g'], na.rm=TRUE)
+#     save.1$weather.szn.2.w <- mean(tc.temp.nolag[which(tc.temp.nolag$weather.szn == 2), 'z.w'], na.rm=TRUE)
+#     save.1$weather.szn.2.b <- mean(tc.temp.nolag[which(tc.temp.nolag$weather.szn == 2), 'z.b'], na.rm=TRUE)
+#     save.1$weather.szn.2.n <- mean(tc.temp.nolag[which(tc.temp.nolag$weather.szn == 2), 'z.n'], na.rm=TRUE)
+#     OUT1 <- rbind(OUT1, save.1)
+#     
+#     ## 6-month lag
+#     ## save annual information (number of scenes/observations, annual averages)
+#     save.2$num.obs <- nrow(tc.temp.6molag)
+#     save.2$ann.mean.g <- mean(tc.temp.6molag$z.g, na.rm=TRUE)
+#     save.2$ann.mean.w <- mean(tc.temp.6molag$z.w, na.rm=TRUE)
+#     save.2$ann.mean.b <- mean(tc.temp.6molag$z.b, na.rm=TRUE)
+#     save.2$ann.mean.n <- mean(tc.temp.6molag$z.n, na.rm=TRUE)
+#     ## save month-based season data for each of 4 seasons
+#     save.2$month.szn.1.obs <- nrow(tc.temp.6molag[which(tc.temp.6molag$month.szn == 1),])
+#     save.2$month.szn.1.g <- mean(tc.temp.6molag[which(tc.temp.6molag$month.szn == 1), 'z.g'], na.rm=TRUE)
+#     save.2$month.szn.1.w <- mean(tc.temp.6molag[which(tc.temp.6molag$month.szn == 1), 'z.w'], na.rm=TRUE)
+#     save.2$month.szn.1.b <- mean(tc.temp.6molag[which(tc.temp.6molag$month.szn == 1), 'z.b'], na.rm=TRUE)
+#     save.2$month.szn.1.n <- mean(tc.temp.6molag[which(tc.temp.6molag$month.szn == 1), 'z.n'], na.rm=TRUE)
+#     save.2$month.szn.2.obs <- nrow(tc.temp.6molag[which(tc.temp.6molag$month.szn == 2),])
+#     save.2$month.szn.2.g <- mean(tc.temp.6molag[which(tc.temp.6molag$month.szn == 2), 'z.g'], na.rm=TRUE)
+#     save.2$month.szn.2.w <- mean(tc.temp.6molag[which(tc.temp.6molag$month.szn == 2), 'z.w'], na.rm=TRUE)
+#     save.2$month.szn.2.b <- mean(tc.temp.6molag[which(tc.temp.6molag$month.szn == 2), 'z.b'], na.rm=TRUE)
+#     save.2$month.szn.2.n <- mean(tc.temp.6molag[which(tc.temp.6molag$month.szn == 2), 'z.n'], na.rm=TRUE)
+#     save.2$month.szn.3.obs <- nrow(tc.temp.6molag[which(tc.temp.6molag$month.szn == 3),])
+#     save.2$month.szn.3.g <- mean(tc.temp.6molag[which(tc.temp.6molag$month.szn == 3), 'z.g'], na.rm=TRUE)
+#     save.2$month.szn.3.w <- mean(tc.temp.6molag[which(tc.temp.6molag$month.szn == 3), 'z.w'], na.rm=TRUE)
+#     save.2$month.szn.3.b <- mean(tc.temp.6molag[which(tc.temp.6molag$month.szn == 3), 'z.b'], na.rm=TRUE)
+#     save.2$month.szn.3.n <- mean(tc.temp.6molag[which(tc.temp.6molag$month.szn == 3), 'z.n'], na.rm=TRUE)
+#     save.2$month.szn.4.obs <- nrow(tc.temp.6molag[which(tc.temp.6molag$month.szn == 4),])
+#     save.2$month.szn.4.g <- mean(tc.temp.6molag[which(tc.temp.6molag$month.szn == 4), 'z.g'], na.rm=TRUE)
+#     save.2$month.szn.4.w <- mean(tc.temp.6molag[which(tc.temp.6molag$month.szn == 4), 'z.w'], na.rm=TRUE)
+#     save.2$month.szn.4.b <- mean(tc.temp.6molag[which(tc.temp.6molag$month.szn == 4), 'z.b'], na.rm=TRUE)
+#     save.2$month.szn.4.n <- mean(tc.temp.6molag[which(tc.temp.6molag$month.szn == 4), 'z.n'], na.rm=TRUE)
+#     ## save weather-based season data for each of 3 seasons
+#     save.2$weather.szn.0.obs <- nrow(tc.temp.6molag[which(tc.temp.6molag$weather.szn == 0),])
+#     save.2$weather.szn.0.g <- mean(tc.temp.6molag[which(tc.temp.6molag$weather.szn == 0), 'z.g'], na.rm=TRUE)
+#     save.2$weather.szn.0.w <- mean(tc.temp.6molag[which(tc.temp.6molag$weather.szn == 0), 'z.w'], na.rm=TRUE)
+#     save.2$weather.szn.0.b <- mean(tc.temp.6molag[which(tc.temp.6molag$weather.szn == 0), 'z.b'], na.rm=TRUE)
+#     save.2$weather.szn.0.n <- mean(tc.temp.6molag[which(tc.temp.6molag$weather.szn == 0), 'z.n'], na.rm=TRUE)
+#     save.2$weather.szn.1.obs <- nrow(tc.temp.6molag[which(tc.temp.6molag$weather.szn == 1),])
+#     save.2$weather.szn.1.g <- mean(tc.temp.6molag[which(tc.temp.6molag$weather.szn == 1), 'z.g'], na.rm=TRUE)
+#     save.2$weather.szn.1.w <- mean(tc.temp.6molag[which(tc.temp.6molag$weather.szn == 1), 'z.w'], na.rm=TRUE)
+#     save.2$weather.szn.1.b <- mean(tc.temp.6molag[which(tc.temp.6molag$weather.szn == 1), 'z.b'], na.rm=TRUE)
+#     save.2$weather.szn.1.n <- mean(tc.temp.6molag[which(tc.temp.6molag$weather.szn == 1), 'z.n'], na.rm=TRUE)
+#     save.2$weather.szn.2.obs <- nrow(tc.temp.6molag[which(tc.temp.6molag$weather.szn == 2),])
+#     save.2$weather.szn.2.g <- mean(tc.temp.6molag[which(tc.temp.6molag$weather.szn == 2), 'z.g'], na.rm=TRUE)
+#     save.2$weather.szn.2.w <- mean(tc.temp.6molag[which(tc.temp.6molag$weather.szn == 2), 'z.w'], na.rm=TRUE)
+#     save.2$weather.szn.2.b <- mean(tc.temp.6molag[which(tc.temp.6molag$weather.szn == 2), 'z.b'], na.rm=TRUE)
+#     save.2$weather.szn.2.n <- mean(tc.temp.6molag[which(tc.temp.6molag$weather.szn == 2), 'z.n'], na.rm=TRUE)
+#     OUT2 <- rbind(OUT2, save.2)
+#     
+#     ## 1-year lag
+#     ## save annual information (number of scenes/observations, annual averages)
+#     save.3$num.obs <- nrow(tc.temp.1yearlag)
+#     save.3$ann.mean.g <- mean(tc.temp.1yearlag$z.g, na.rm=TRUE)
+#     save.3$ann.mean.w <- mean(tc.temp.1yearlag$z.w, na.rm=TRUE)
+#     save.3$ann.mean.b <- mean(tc.temp.1yearlag$z.b, na.rm=TRUE)
+#     save.3$ann.mean.n <- mean(tc.temp.1yearlag$z.n, na.rm=TRUE)
+#     ## save month-based season data for each of 4 seasons
+#     save.3$month.szn.1.obs <- nrow(tc.temp.1yearlag[which(tc.temp.1yearlag$month.szn == 1),])
+#     save.3$month.szn.1.g <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$month.szn == 1), 'z.g'], na.rm=TRUE)
+#     save.3$month.szn.1.w <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$month.szn == 1), 'z.w'], na.rm=TRUE)
+#     save.3$month.szn.1.b <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$month.szn == 1), 'z.b'], na.rm=TRUE)
+#     save.3$month.szn.1.n <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$month.szn == 1), 'z.n'], na.rm=TRUE)
+#     save.3$month.szn.2.obs <- nrow(tc.temp.1yearlag[which(tc.temp.1yearlag$month.szn == 2),])
+#     save.3$month.szn.2.g <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$month.szn == 2), 'z.g'], na.rm=TRUE)
+#     save.3$month.szn.2.w <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$month.szn == 2), 'z.w'], na.rm=TRUE)
+#     save.3$month.szn.2.b <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$month.szn == 2), 'z.b'], na.rm=TRUE)
+#     save.3$month.szn.2.n <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$month.szn == 2), 'z.n'], na.rm=TRUE)
+#     save.3$month.szn.3.obs <- nrow(tc.temp.1yearlag[which(tc.temp.1yearlag$month.szn == 3),])
+#     save.3$month.szn.3.g <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$month.szn == 3), 'z.g'], na.rm=TRUE)
+#     save.3$month.szn.3.w <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$month.szn == 3), 'z.w'], na.rm=TRUE)
+#     save.3$month.szn.3.b <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$month.szn == 3), 'z.b'], na.rm=TRUE)
+#     save.3$month.szn.3.n <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$month.szn == 3), 'z.n'], na.rm=TRUE)
+#     save.3$month.szn.4.obs <- nrow(tc.temp.1yearlag[which(tc.temp.1yearlag$month.szn == 4),])
+#     save.3$month.szn.4.g <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$month.szn == 4), 'z.g'], na.rm=TRUE)
+#     save.3$month.szn.4.w <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$month.szn == 4), 'z.w'], na.rm=TRUE)
+#     save.3$month.szn.4.b <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$month.szn == 4), 'z.b'], na.rm=TRUE)
+#     save.3$month.szn.4.n <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$month.szn == 4), 'z.n'], na.rm=TRUE)
+#     ## save weather-based season data for each of 3 seasons
+#     save.3$weather.szn.0.obs <- nrow(tc.temp.1yearlag[which(tc.temp.1yearlag$weather.szn == 0),])
+#     save.3$weather.szn.0.g <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$weather.szn == 0), 'z.g'], na.rm=TRUE)
+#     save.3$weather.szn.0.w <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$weather.szn == 0), 'z.w'], na.rm=TRUE)
+#     save.3$weather.szn.0.b <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$weather.szn == 0), 'z.b'], na.rm=TRUE)
+#     save.3$weather.szn.0.n <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$weather.szn == 0), 'z.n'], na.rm=TRUE)
+#     save.3$weather.szn.1.obs <- nrow(tc.temp.1yearlag[which(tc.temp.1yearlag$weather.szn == 1),])
+#     save.3$weather.szn.1.g <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$weather.szn == 1), 'z.g'], na.rm=TRUE)
+#     save.3$weather.szn.1.w <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$weather.szn == 1), 'z.w'], na.rm=TRUE)
+#     save.3$weather.szn.1.b <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$weather.szn == 1), 'z.b'], na.rm=TRUE)
+#     save.3$weather.szn.1.n <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$weather.szn == 1), 'z.n'], na.rm=TRUE)
+#     save.3$weather.szn.2.obs <- nrow(tc.temp.1yearlag[which(tc.temp.1yearlag$weather.szn == 2),])
+#     save.3$weather.szn.2.g <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$weather.szn == 2), 'z.g'], na.rm=TRUE)
+#     save.3$weather.szn.2.w <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$weather.szn == 2), 'z.w'], na.rm=TRUE)
+#     save.3$weather.szn.2.b <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$weather.szn == 2), 'z.b'], na.rm=TRUE)
+#     save.3$weather.szn.2.n <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$weather.szn == 2), 'z.n'], na.rm=TRUE)
+#     OUT3 <- rbind(OUT3, save.3)
+#     
+#     ct <- ct+1
 #   }
+#   write.table(OUT1, '/Users/Avril/Documents/krat_remote_sensing/intermediate_data/random_mound_data_nolag.txt', 
+#               row.names = FALSE, quote=FALSE, sep='\t', append=TRUE, col.names=FALSE)
+#   write.table(OUT2, '/Users/Avril/Documents/krat_remote_sensing/intermediate_data/random_mound_data_6monthlag.txt', 
+#               row.names = FALSE, quote=FALSE, sep='\t', append=TRUE, col.names=FALSE)
+#   write.table(OUT3, '/Users/Avril/Documents/krat_remote_sensing/intermediate_data/random_mound_data_1yearlag.txt', 
+#               row.names = FALSE, quote=FALSE, sep='\t', append=TRUE, col.names=FALSE)
+#               
+#   OUT1 <- NULL ## no lag
+#   OUT2 <- NULL ## 6-month lag
+#   OUT3 <- NULL ## 1-year lag
 # }
-# random.mnd.tc.lag.year <- as.data.frame(OUT)
-# write.csv(random.mnd.tc.lag.year, '../intermediate_data/random_mound_data_using_lag_year.csv', row.names = FALSE)
 
-plot(random.mnd.tc.year$ann.mean.b, random.mnd.tc.year$num.off, col=alpha(b.col, 0.4), pch=19)
-plot(random.mnd.tc.year$ann.mean.g, random.mnd.tc.year$num.off, col=alpha(g.col, 0.4), pch=19)
-plot(random.mnd.tc.year$ann.mean.w, random.mnd.tc.year$num.off, col=alpha(w.col, 0.4), pch=19)
-plot(random.mnd.tc.year$ann.mean.b, random.mnd.tc.year$num.surv, col=alpha(b.col, 0.4), pch=19)
-plot(random.mnd.tc.year$ann.mean.g, random.mnd.tc.year$num.surv, col=alpha(g.col, 0.4), pch=19)
-plot(random.mnd.tc.year$ann.mean.w, random.mnd.tc.year$num.surv, col=alpha(w.col, 0.4), pch=19)
-plot(random.mnd.tc.year$ann.mean.b, random.mnd.tc.year$avg.age, col=alpha(b.col, 0.4), pch=19)
-plot(random.mnd.tc.year$ann.mean.g, random.mnd.tc.year$avg.age, col=alpha(g.col, 0.4), pch=19)
-plot(random.mnd.tc.year$ann.mean.w, random.mnd.tc.year$avg.age, col=alpha(w.col, 0.4), pch=19)
-#
+##### Read in mound cell data #####
+random.mnd.nolag <- read.table('/Users/Avril/Documents/krat_remote_sensing/intermediate_data/random_mound_data_nolag.txt', sep='\t')
+colnames(random.mnd.nolag) <- c('cell.num','database.name','year','num.off','num.surv','avg.age','num.obs','ann.mean.g','ann.mean.w','ann.mean.b','ann.mean.n','month.szn.1.obs','month.szn.1.g','month.szn.1.w','month.szn.1.b','month.szn.1.n','month.szn.2.obs','month.szn.2.g','month.szn.2.w','month.szn.2.b','month.szn.2.n','month.szn.3.obs','month.szn.3.g','month.szn.3.w','month.szn.3.b','month.szn.3.n','month.szn.4.obs','month.szn.4.g','month.szn.4.w','month.szn.4.b','month.szn.4.n','weather.szn.0.obs','weather.szn.0.g','weather.szn.0.w','weather.szn.0.b','weather.szn.0.n','weather.szn.1.obs','weather.szn.1.g','weather.szn.1.w','weather.szn.1.b','weather.szn.1.n','weather.szn.2.obs','weather.szn.2.g','weather.szn.2.w','weather.szn.2.b','weather.szn.2.n')
+random.mnd.6molag <- read.table('/Users/Avril/Documents/krat_remote_sensing/intermediate_data/random_mound_data_6monthlag.txt', sep='\t')
+colnames(random.mnd.6molag) <- c('cell.num','database.name','year','num.off','num.surv','avg.age','num.obs','ann.mean.g','ann.mean.w','ann.mean.b','ann.mean.n','month.szn.1.obs','month.szn.1.g','month.szn.1.w','month.szn.1.b','month.szn.1.n','month.szn.2.obs','month.szn.2.g','month.szn.2.w','month.szn.2.b','month.szn.2.n','month.szn.3.obs','month.szn.3.g','month.szn.3.w','month.szn.3.b','month.szn.3.n','month.szn.4.obs','month.szn.4.g','month.szn.4.w','month.szn.4.b','month.szn.4.n','weather.szn.0.obs','weather.szn.0.g','weather.szn.0.w','weather.szn.0.b','weather.szn.0.n','weather.szn.1.obs','weather.szn.1.g','weather.szn.1.w','weather.szn.1.b','weather.szn.1.n','weather.szn.2.obs','weather.szn.2.g','weather.szn.2.w','weather.szn.2.b','weather.szn.2.n') 
+random.mnd.1yrlag <- read.table('/Users/Avril/Documents/krat_remote_sensing/intermediate_data/random_mound_data_1yearlag.txt', sep='\t')
+colnames(random.mnd.1yrlag) <- c('cell.num','database.name','year','num.off','num.surv','avg.age','num.obs','ann.mean.g','ann.mean.w','ann.mean.b','ann.mean.n','month.szn.1.obs','month.szn.1.g','month.szn.1.w','month.szn.1.b','month.szn.1.n','month.szn.2.obs','month.szn.2.g','month.szn.2.w','month.szn.2.b','month.szn.2.n','month.szn.3.obs','month.szn.3.g','month.szn.3.w','month.szn.3.b','month.szn.3.n','month.szn.4.obs','month.szn.4.g','month.szn.4.w','month.szn.4.b','month.szn.4.n','weather.szn.0.obs','weather.szn.0.g','weather.szn.0.w','weather.szn.0.b','weather.szn.0.n','weather.szn.1.obs','weather.szn.1.g','weather.szn.1.w','weather.szn.1.b','weather.szn.1.n','weather.szn.2.obs','weather.szn.2.g','weather.szn.2.w','weather.szn.2.b','weather.szn.2.n')
 
-# ##### !!! have to figure out how to incorporate concept of lag year data #####
-# ##### Check for relationships between environmental data for buffer zone around cells with offspring in a year
-# nc <- ncol(ls5.stack) ## number of columns in raster
-# nr <- nrow(ls5.stack) ## number of rows in raster
-# loop.tc <- tc.dat
-# OUT <- NULL
-# # pdf('/Users/Avril/Desktop/mounds_with_offspring_in_analysis.pdf', width=6, height=8)
-# for(y in unique(off$year)){
-#   temp <- off[off$year == y,] ## subset offspring data to year
-#   cs <- unique(temp$cell.num) ## get list of all cells of interest for that year
-#   adj <- c(cs-nc-1, cs-nc, cs-nc+1, cs-1, cs+1, cs+nc-1, cs+nc, cs+nc+1) ## expand list of cells to include cells adjacent to cells of interest (center + 8 cells surrounding)
-#   cs <- unique(c(cs, adj)) ## get list of unique cell #s
-#   r <- ls5.stack ## create buffer polygon
-#   r[setdiff(seq_len(ncell(r)), cs)] <- NA
-#   r[!is.na(r)] <- 1
-#   raster::plotRGB(ls5.stack, r=3, g=2, b=1, scale=ls5.stack@data@max[c(3,2,1)], margins=FALSE)
-#     plot(rasterToPolygons(r, dissolve=TRUE), add=TRUE, border='red', lwd=2) ## plot outline of cells to be included in analyses
-#     legend('topleft', legend=y, bty='n', inset=c(0.15, 0.02), cex=1.5)
-#   tc.temp <- loop.tc[which(loop.tc$lag.year == y),] ## get lag year environmental data that corresponds to year preceeding offspring recorded for that year
-#   tc.temp <- tc.temp[which(tc.temp$cell.num %in% cs),]
-#   tc.temp <- tc.temp[!duplicated(tc.temp),]
-#   save <- c(y, mean(tc.temp$greenness, na.rm=TRUE), mean(tc.temp[tc.temp$weather.szn == 0, 'greenness'], na.rm=TRUE), ## get average TC values across all cells within a year
-#             mean(tc.temp[tc.temp$weather.szn == 1, 'greenness'], na.rm=TRUE), mean(tc.temp[tc.temp$weather.szn == 2, 'greenness'], na.rm=TRUE),
-#             mean(tc.temp$brightness, na.rm=TRUE), mean(tc.temp[tc.temp$weather.szn == 0, 'brightness'], na.rm=TRUE), 
-#             mean(tc.temp[tc.temp$weather.szn == 1, 'brightness'], na.rm=TRUE), mean(tc.temp[tc.temp$weather.szn == 2, 'brightness'], na.rm=TRUE),
-#             mean(tc.temp$wetness, na.rm=TRUE), mean(tc.temp[tc.temp$weather.szn == 0, 'wetness'], na.rm=TRUE), 
-#             mean(tc.temp[tc.temp$weather.szn == 1, 'wetness'], na.rm=TRUE), mean(tc.temp[tc.temp$weather.szn == 2, 'wetness'], na.rm=TRUE))
-#   OUT <- rbind(OUT, save)
+# ##### Same process, but selecting random, unoccupied cells, outside the mound buffer zone #####
+# samp.size <- 100
+# ## set buffer size
+# b <- 78
+# ## set up where to save results for:
+# OUT1 <- NULL ## no lag
+# OUT2 <- NULL ## 6-month lag
+# OUT3 <- NULL ## 1-year lag
+# write.table(OUT1, '/Users/Avril/Documents/krat_remote_sensing/intermediate_data/unoccupied_cells_data_nolag.txt',
+#             row.names = FALSE, quote=FALSE, sep='\t', col.names=FALSE)
+# write.table(OUT2, '/Users/Avril/Documents/krat_remote_sensing/intermediate_data/unoccupied_cells_data_6monthlag.txt',
+#             row.names = FALSE, quote=FALSE, sep='\t', col.names=FALSE)
+# write.table(OUT3, '/Users/Avril/Documents/krat_remote_sensing/intermediate_data/unoccupied_cells_data_1yearlag.txt',
+#             row.names = FALSE, quote=FALSE, sep='\t', col.names=FALSE)
+# for(y in unique(mnd.offs$year)){
+#   print(y)
+#   sub <- mnd.offs[mnd.offs$year == y,]
+#   mnd.cells <- unique(sub$cell.num)
+#   all.cells <- unique(sub.tc.dat[sub.tc.dat$year == y | sub.tc.dat$half.year.lag == y | sub.tc.dat$one.year.lag == y, 'cell.num'])
+# 
+#   # rand.cells <- sample(all.cells[all.cells %notin% mnd.cells], size=samp.size, replace=FALSE)
+# 
+#   print(y)
+#   sub <- mnd.offs[mnd.offs$year == y,]
+#   ## subset to mounds occupied in the focal year and get buffer
+#   temp.locs <- all.locs[all.locs$terr %in% sub$database.name,]
+#   buf <- extract(ls5.stack$B1_sr, temp.locs, buffer=b, df=TRUE, cellnumbers=TRUE)
+#   buf <- unique(buf[,2])
+#   ## get random cells outside the buffer
+#   rand.cells <- all.cells[all.cells %notin% buf]
+#   rand.cells <- sample(rand.cells, size=samp.size, replace=FALSE)
+# 
+#   ct <- 1
+#   for(i in rand.cells){
+#     print(ct/samp.size)
+#     save.1 <- NULL
+#     save.2 <- NULL
+#     save.3 <- NULL
+#     ## save relevant environmental information for each lag approach
+#     tc.temp.nolag <- sub.tc.dat[which(sub.tc.dat$cell.num == i & sub.tc.dat$year == y),]
+#     tc.temp.6molag <- sub.tc.dat[which(sub.tc.dat$cell.num == i & sub.tc.dat$half.year.lag == y),]
+#     tc.temp.1yearlag <- sub.tc.dat[which(sub.tc.dat$cell.num == i & sub.tc.dat$one.year.lag == y),]
+# 
+#     ## No lag
+#     ## save annual information (number of scenes/observations, annual averages)
+#     save.1$cell.num <- i
+#     save.1$year <- y
+#     save.1$num.obs <- nrow(tc.temp.nolag)
+#     save.1$ann.mean.g <- mean(tc.temp.nolag$z.g, na.rm=TRUE)
+#     save.1$ann.mean.w <- mean(tc.temp.nolag$z.w, na.rm=TRUE)
+#     save.1$ann.mean.b <- mean(tc.temp.nolag$z.b, na.rm=TRUE)
+#     save.1$ann.mean.n <- mean(tc.temp.nolag$z.n, na.rm=TRUE)
+#     ## save month-based season data for each of 4 seasons
+#     save.1$month.szn.1.obs <- nrow(tc.temp.nolag[which(tc.temp.nolag$month.szn == 1),])
+#     save.1$month.szn.1.g <- mean(tc.temp.nolag[which(tc.temp.nolag$month.szn == 1), 'z.g'], na.rm=TRUE)
+#     save.1$month.szn.1.w <- mean(tc.temp.nolag[which(tc.temp.nolag$month.szn == 1), 'z.w'], na.rm=TRUE)
+#     save.1$month.szn.1.b <- mean(tc.temp.nolag[which(tc.temp.nolag$month.szn == 1), 'z.b'], na.rm=TRUE)
+#     save.1$month.szn.1.n <- mean(tc.temp.nolag[which(tc.temp.nolag$month.szn == 1), 'z.n'], na.rm=TRUE)
+#     save.1$month.szn.2.obs <- nrow(tc.temp.nolag[which(tc.temp.nolag$month.szn == 2),])
+#     save.1$month.szn.2.g <- mean(tc.temp.nolag[which(tc.temp.nolag$month.szn == 2), 'z.g'], na.rm=TRUE)
+#     save.1$month.szn.2.w <- mean(tc.temp.nolag[which(tc.temp.nolag$month.szn == 2), 'z.w'], na.rm=TRUE)
+#     save.1$month.szn.2.b <- mean(tc.temp.nolag[which(tc.temp.nolag$month.szn == 2), 'z.b'], na.rm=TRUE)
+#     save.1$month.szn.2.n <- mean(tc.temp.nolag[which(tc.temp.nolag$month.szn == 2), 'z.n'], na.rm=TRUE)
+#     save.1$month.szn.3.obs <- nrow(tc.temp.nolag[which(tc.temp.nolag$month.szn == 3),])
+#     save.1$month.szn.3.g <- mean(tc.temp.nolag[which(tc.temp.nolag$month.szn == 3), 'z.g'], na.rm=TRUE)
+#     save.1$month.szn.3.w <- mean(tc.temp.nolag[which(tc.temp.nolag$month.szn == 3), 'z.w'], na.rm=TRUE)
+#     save.1$month.szn.3.b <- mean(tc.temp.nolag[which(tc.temp.nolag$month.szn == 3), 'z.b'], na.rm=TRUE)
+#     save.1$month.szn.3.n <- mean(tc.temp.nolag[which(tc.temp.nolag$month.szn == 3), 'z.n'], na.rm=TRUE)
+#     save.1$month.szn.4.obs <- nrow(tc.temp.nolag[which(tc.temp.nolag$month.szn == 4),])
+#     save.1$month.szn.4.g <- mean(tc.temp.nolag[which(tc.temp.nolag$month.szn == 4), 'z.g'], na.rm=TRUE)
+#     save.1$month.szn.4.w <- mean(tc.temp.nolag[which(tc.temp.nolag$month.szn == 4), 'z.w'], na.rm=TRUE)
+#     save.1$month.szn.4.b <- mean(tc.temp.nolag[which(tc.temp.nolag$month.szn == 4), 'z.b'], na.rm=TRUE)
+#     save.1$month.szn.4.n <- mean(tc.temp.nolag[which(tc.temp.nolag$month.szn == 4), 'z.n'], na.rm=TRUE)
+#     ## save weather-based season data for each of 3 seasons
+#     save.1$weather.szn.0.obs <- nrow(tc.temp.nolag[which(tc.temp.nolag$weather.szn == 0),])
+#     save.1$weather.szn.0.g <- mean(tc.temp.nolag[which(tc.temp.nolag$weather.szn == 0), 'z.g'], na.rm=TRUE)
+#     save.1$weather.szn.0.w <- mean(tc.temp.nolag[which(tc.temp.nolag$weather.szn == 0), 'z.w'], na.rm=TRUE)
+#     save.1$weather.szn.0.b <- mean(tc.temp.nolag[which(tc.temp.nolag$weather.szn == 0), 'z.b'], na.rm=TRUE)
+#     save.1$weather.szn.0.n <- mean(tc.temp.nolag[which(tc.temp.nolag$weather.szn == 0), 'z.n'], na.rm=TRUE)
+#     save.1$weather.szn.1.obs <- nrow(tc.temp.nolag[which(tc.temp.nolag$weather.szn == 1),])
+#     save.1$weather.szn.1.g <- mean(tc.temp.nolag[which(tc.temp.nolag$weather.szn == 1), 'z.g'], na.rm=TRUE)
+#     save.1$weather.szn.1.w <- mean(tc.temp.nolag[which(tc.temp.nolag$weather.szn == 1), 'z.w'], na.rm=TRUE)
+#     save.1$weather.szn.1.b <- mean(tc.temp.nolag[which(tc.temp.nolag$weather.szn == 1), 'z.b'], na.rm=TRUE)
+#     save.1$weather.szn.1.n <- mean(tc.temp.nolag[which(tc.temp.nolag$weather.szn == 1), 'z.n'], na.rm=TRUE)
+#     save.1$weather.szn.2.obs <- nrow(tc.temp.nolag[which(tc.temp.nolag$weather.szn == 2),])
+#     save.1$weather.szn.2.g <- mean(tc.temp.nolag[which(tc.temp.nolag$weather.szn == 2), 'z.g'], na.rm=TRUE)
+#     save.1$weather.szn.2.w <- mean(tc.temp.nolag[which(tc.temp.nolag$weather.szn == 2), 'z.w'], na.rm=TRUE)
+#     save.1$weather.szn.2.b <- mean(tc.temp.nolag[which(tc.temp.nolag$weather.szn == 2), 'z.b'], na.rm=TRUE)
+#     save.1$weather.szn.2.n <- mean(tc.temp.nolag[which(tc.temp.nolag$weather.szn == 2), 'z.n'], na.rm=TRUE)
+#     OUT1 <- rbind(OUT1, save.1)
+# 
+#     ## 6-month lag
+#     ## save annual information (number of scenes/observations, annual averages)
+#     save.2$cell.num <- i
+#     save.2$year <- y
+#     save.2$num.obs <- nrow(tc.temp.6molag)
+#     save.2$ann.mean.g <- mean(tc.temp.6molag$z.g, na.rm=TRUE)
+#     save.2$ann.mean.w <- mean(tc.temp.6molag$z.w, na.rm=TRUE)
+#     save.2$ann.mean.b <- mean(tc.temp.6molag$z.b, na.rm=TRUE)
+#     save.2$ann.mean.n <- mean(tc.temp.6molag$z.n, na.rm=TRUE)
+#     ## save month-based season data for each of 4 seasons
+#     save.2$month.szn.1.obs <- nrow(tc.temp.6molag[which(tc.temp.6molag$month.szn == 1),])
+#     save.2$month.szn.1.g <- mean(tc.temp.6molag[which(tc.temp.6molag$month.szn == 1), 'z.g'], na.rm=TRUE)
+#     save.2$month.szn.1.w <- mean(tc.temp.6molag[which(tc.temp.6molag$month.szn == 1), 'z.w'], na.rm=TRUE)
+#     save.2$month.szn.1.b <- mean(tc.temp.6molag[which(tc.temp.6molag$month.szn == 1), 'z.b'], na.rm=TRUE)
+#     save.2$month.szn.1.n <- mean(tc.temp.6molag[which(tc.temp.6molag$month.szn == 1), 'z.n'], na.rm=TRUE)
+#     save.2$month.szn.2.obs <- nrow(tc.temp.6molag[which(tc.temp.6molag$month.szn == 2),])
+#     save.2$month.szn.2.g <- mean(tc.temp.6molag[which(tc.temp.6molag$month.szn == 2), 'z.g'], na.rm=TRUE)
+#     save.2$month.szn.2.w <- mean(tc.temp.6molag[which(tc.temp.6molag$month.szn == 2), 'z.w'], na.rm=TRUE)
+#     save.2$month.szn.2.b <- mean(tc.temp.6molag[which(tc.temp.6molag$month.szn == 2), 'z.b'], na.rm=TRUE)
+#     save.2$month.szn.2.n <- mean(tc.temp.6molag[which(tc.temp.6molag$month.szn == 2), 'z.n'], na.rm=TRUE)
+#     save.2$month.szn.3.obs <- nrow(tc.temp.6molag[which(tc.temp.6molag$month.szn == 3),])
+#     save.2$month.szn.3.g <- mean(tc.temp.6molag[which(tc.temp.6molag$month.szn == 3), 'z.g'], na.rm=TRUE)
+#     save.2$month.szn.3.w <- mean(tc.temp.6molag[which(tc.temp.6molag$month.szn == 3), 'z.w'], na.rm=TRUE)
+#     save.2$month.szn.3.b <- mean(tc.temp.6molag[which(tc.temp.6molag$month.szn == 3), 'z.b'], na.rm=TRUE)
+#     save.2$month.szn.3.n <- mean(tc.temp.6molag[which(tc.temp.6molag$month.szn == 3), 'z.n'], na.rm=TRUE)
+#     save.2$month.szn.4.obs <- nrow(tc.temp.6molag[which(tc.temp.6molag$month.szn == 4),])
+#     save.2$month.szn.4.g <- mean(tc.temp.6molag[which(tc.temp.6molag$month.szn == 4), 'z.g'], na.rm=TRUE)
+#     save.2$month.szn.4.w <- mean(tc.temp.6molag[which(tc.temp.6molag$month.szn == 4), 'z.w'], na.rm=TRUE)
+#     save.2$month.szn.4.b <- mean(tc.temp.6molag[which(tc.temp.6molag$month.szn == 4), 'z.b'], na.rm=TRUE)
+#     save.2$month.szn.4.n <- mean(tc.temp.6molag[which(tc.temp.6molag$month.szn == 4), 'z.n'], na.rm=TRUE)
+#     ## save weather-based season data for each of 3 seasons
+#     save.2$weather.szn.0.obs <- nrow(tc.temp.6molag[which(tc.temp.6molag$weather.szn == 0),])
+#     save.2$weather.szn.0.g <- mean(tc.temp.6molag[which(tc.temp.6molag$weather.szn == 0), 'z.g'], na.rm=TRUE)
+#     save.2$weather.szn.0.w <- mean(tc.temp.6molag[which(tc.temp.6molag$weather.szn == 0), 'z.w'], na.rm=TRUE)
+#     save.2$weather.szn.0.b <- mean(tc.temp.6molag[which(tc.temp.6molag$weather.szn == 0), 'z.b'], na.rm=TRUE)
+#     save.2$weather.szn.0.n <- mean(tc.temp.6molag[which(tc.temp.6molag$weather.szn == 0), 'z.n'], na.rm=TRUE)
+#     save.2$weather.szn.1.obs <- nrow(tc.temp.6molag[which(tc.temp.6molag$weather.szn == 1),])
+#     save.2$weather.szn.1.g <- mean(tc.temp.6molag[which(tc.temp.6molag$weather.szn == 1), 'z.g'], na.rm=TRUE)
+#     save.2$weather.szn.1.w <- mean(tc.temp.6molag[which(tc.temp.6molag$weather.szn == 1), 'z.w'], na.rm=TRUE)
+#     save.2$weather.szn.1.b <- mean(tc.temp.6molag[which(tc.temp.6molag$weather.szn == 1), 'z.b'], na.rm=TRUE)
+#     save.2$weather.szn.1.n <- mean(tc.temp.6molag[which(tc.temp.6molag$weather.szn == 1), 'z.n'], na.rm=TRUE)
+#     save.2$weather.szn.2.obs <- nrow(tc.temp.6molag[which(tc.temp.6molag$weather.szn == 2),])
+#     save.2$weather.szn.2.g <- mean(tc.temp.6molag[which(tc.temp.6molag$weather.szn == 2), 'z.g'], na.rm=TRUE)
+#     save.2$weather.szn.2.w <- mean(tc.temp.6molag[which(tc.temp.6molag$weather.szn == 2), 'z.w'], na.rm=TRUE)
+#     save.2$weather.szn.2.b <- mean(tc.temp.6molag[which(tc.temp.6molag$weather.szn == 2), 'z.b'], na.rm=TRUE)
+#     save.2$weather.szn.2.n <- mean(tc.temp.6molag[which(tc.temp.6molag$weather.szn == 2), 'z.n'], na.rm=TRUE)
+#     OUT2 <- rbind(OUT2, save.2)
+# 
+#     ## 1-year lag
+#     ## save annual information (number of scenes/observations, annual averages)
+#     save.3$cell.num <- i
+#     save.3$year <- y
+#     save.3$num.obs <- nrow(tc.temp.1yearlag)
+#     save.3$ann.mean.g <- mean(tc.temp.1yearlag$z.g, na.rm=TRUE)
+#     save.3$ann.mean.w <- mean(tc.temp.1yearlag$z.w, na.rm=TRUE)
+#     save.3$ann.mean.b <- mean(tc.temp.1yearlag$z.b, na.rm=TRUE)
+#     save.3$ann.mean.n <- mean(tc.temp.1yearlag$z.n, na.rm=TRUE)
+#     ## save month-based season data for each of 4 seasons
+#     save.3$month.szn.1.obs <- nrow(tc.temp.1yearlag[which(tc.temp.1yearlag$month.szn == 1),])
+#     save.3$month.szn.1.g <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$month.szn == 1), 'z.g'], na.rm=TRUE)
+#     save.3$month.szn.1.w <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$month.szn == 1), 'z.w'], na.rm=TRUE)
+#     save.3$month.szn.1.b <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$month.szn == 1), 'z.b'], na.rm=TRUE)
+#     save.3$month.szn.1.n <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$month.szn == 1), 'z.n'], na.rm=TRUE)
+#     save.3$month.szn.2.obs <- nrow(tc.temp.1yearlag[which(tc.temp.1yearlag$month.szn == 2),])
+#     save.3$month.szn.2.g <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$month.szn == 2), 'z.g'], na.rm=TRUE)
+#     save.3$month.szn.2.w <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$month.szn == 2), 'z.w'], na.rm=TRUE)
+#     save.3$month.szn.2.b <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$month.szn == 2), 'z.b'], na.rm=TRUE)
+#     save.3$month.szn.2.n <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$month.szn == 2), 'z.n'], na.rm=TRUE)
+#     save.3$month.szn.3.obs <- nrow(tc.temp.1yearlag[which(tc.temp.1yearlag$month.szn == 3),])
+#     save.3$month.szn.3.g <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$month.szn == 3), 'z.g'], na.rm=TRUE)
+#     save.3$month.szn.3.w <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$month.szn == 3), 'z.w'], na.rm=TRUE)
+#     save.3$month.szn.3.b <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$month.szn == 3), 'z.b'], na.rm=TRUE)
+#     save.3$month.szn.3.n <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$month.szn == 3), 'z.n'], na.rm=TRUE)
+#     save.3$month.szn.4.obs <- nrow(tc.temp.1yearlag[which(tc.temp.1yearlag$month.szn == 4),])
+#     save.3$month.szn.4.g <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$month.szn == 4), 'z.g'], na.rm=TRUE)
+#     save.3$month.szn.4.w <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$month.szn == 4), 'z.w'], na.rm=TRUE)
+#     save.3$month.szn.4.b <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$month.szn == 4), 'z.b'], na.rm=TRUE)
+#     save.3$month.szn.4.n <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$month.szn == 4), 'z.n'], na.rm=TRUE)
+#     ## save weather-based season data for each of 3 seasons
+#     save.3$weather.szn.0.obs <- nrow(tc.temp.1yearlag[which(tc.temp.1yearlag$weather.szn == 0),])
+#     save.3$weather.szn.0.g <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$weather.szn == 0), 'z.g'], na.rm=TRUE)
+#     save.3$weather.szn.0.w <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$weather.szn == 0), 'z.w'], na.rm=TRUE)
+#     save.3$weather.szn.0.b <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$weather.szn == 0), 'z.b'], na.rm=TRUE)
+#     save.3$weather.szn.0.n <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$weather.szn == 0), 'z.n'], na.rm=TRUE)
+#     save.3$weather.szn.1.obs <- nrow(tc.temp.1yearlag[which(tc.temp.1yearlag$weather.szn == 1),])
+#     save.3$weather.szn.1.g <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$weather.szn == 1), 'z.g'], na.rm=TRUE)
+#     save.3$weather.szn.1.w <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$weather.szn == 1), 'z.w'], na.rm=TRUE)
+#     save.3$weather.szn.1.b <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$weather.szn == 1), 'z.b'], na.rm=TRUE)
+#     save.3$weather.szn.1.n <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$weather.szn == 1), 'z.n'], na.rm=TRUE)
+#     save.3$weather.szn.2.obs <- nrow(tc.temp.1yearlag[which(tc.temp.1yearlag$weather.szn == 2),])
+#     save.3$weather.szn.2.g <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$weather.szn == 2), 'z.g'], na.rm=TRUE)
+#     save.3$weather.szn.2.w <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$weather.szn == 2), 'z.w'], na.rm=TRUE)
+#     save.3$weather.szn.2.b <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$weather.szn == 2), 'z.b'], na.rm=TRUE)
+#     save.3$weather.szn.2.n <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$weather.szn == 2), 'z.n'], na.rm=TRUE)
+#     OUT3 <- rbind(OUT3, save.3)
+# 
+#     ct <- ct+1
+#   }
+#   write.table(OUT1, '/Users/Avril/Documents/krat_remote_sensing/intermediate_data/unoccupied_cells_data_nolag.txt',
+#               row.names = FALSE, quote=FALSE, sep='\t', append=TRUE, col.names=FALSE)
+#   write.table(OUT2, '/Users/Avril/Documents/krat_remote_sensing/intermediate_data/unoccupied_cells_data_6monthlag.txt',
+#               row.names = FALSE, quote=FALSE, sep='\t', append=TRUE, col.names=FALSE)
+#   write.table(OUT3, '/Users/Avril/Documents/krat_remote_sensing/intermediate_data/unoccupied_cells_data_1yearlag.txt',
+#               row.names = FALSE, quote=FALSE, sep='\t', append=TRUE, col.names=FALSE)
+#   OUT1 <- NULL ## no lag
+#   OUT2 <- NULL ## 6-month lag
+#   OUT3 <- NULL ## 1-year lag
 # }
-# # dev.off()
-# year.dat <- as.data.frame(OUT)
-# colnames(year.dat) <- c('year','mean.g','mean.offs.g','mean.mon.g','mean.win.g','mean.b','mean.offs.b','mean.mon.b','mean.win.b','mean.w','mean.offs.w','mean.mon.w','mean.win.w')
+
+##### Read in unoccupied cell data #####
+unocc.nolag <- read.table('/Users/Avril/Documents/krat_remote_sensing/intermediate_data/unoccupied_cells_data_nolag.txt', sep='\t')
+colnames(unocc.nolag) <- c('cell.num','year','num.obs','ann.mean.g','ann.mean.w','ann.mean.b','ann.mean.n','month.szn.1.obs','month.szn.1.g','month.szn.1.w','month.szn.1.b','month.szn.1.n','month.szn.2.obs','month.szn.2.g','month.szn.2.w','month.szn.2.b','month.szn.2.n','month.szn.3.obs','month.szn.3.g','month.szn.3.w','month.szn.3.b','month.szn.3.n','month.szn.4.obs','month.szn.4.g','month.szn.4.w','month.szn.4.b','month.szn.4.n','weather.szn.0.obs','weather.szn.0.g','weather.szn.0.w','weather.szn.0.b','weather.szn.0.n','weather.szn.1.obs','weather.szn.1.g','weather.szn.1.w','weather.szn.1.b','weather.szn.1.n','weather.szn.2.obs','weather.szn.2.g','weather.szn.2.w','weather.szn.2.b','weather.szn.2.n')
+unocc.6molag <- read.table('/Users/Avril/Documents/krat_remote_sensing/intermediate_data/unoccupied_cells_data_6monthlag.txt', sep='\t')
+colnames(unocc.6molag) <- c('cell.num','year','num.obs','ann.mean.g','ann.mean.w','ann.mean.b','ann.mean.n','month.szn.1.obs','month.szn.1.g','month.szn.1.w','month.szn.1.b','month.szn.1.n','month.szn.2.obs','month.szn.2.g','month.szn.2.w','month.szn.2.b','month.szn.2.n','month.szn.3.obs','month.szn.3.g','month.szn.3.w','month.szn.3.b','month.szn.3.n','month.szn.4.obs','month.szn.4.g','month.szn.4.w','month.szn.4.b','month.szn.4.n','weather.szn.0.obs','weather.szn.0.g','weather.szn.0.w','weather.szn.0.b','weather.szn.0.n','weather.szn.1.obs','weather.szn.1.g','weather.szn.1.w','weather.szn.1.b','weather.szn.1.n','weather.szn.2.obs','weather.szn.2.g','weather.szn.2.w','weather.szn.2.b','weather.szn.2.n')
+unocc.1yrlag <- read.table('/Users/Avril/Documents/krat_remote_sensing/intermediate_data/unoccupied_cells_data_1yearlag.txt', sep='\t')
+colnames(unocc.1yrlag) <- c('cell.num','year','num.obs','ann.mean.g','ann.mean.w','ann.mean.b','ann.mean.n','month.szn.1.obs','month.szn.1.g','month.szn.1.w','month.szn.1.b','month.szn.1.n','month.szn.2.obs','month.szn.2.g','month.szn.2.w','month.szn.2.b','month.szn.2.n','month.szn.3.obs','month.szn.3.g','month.szn.3.w','month.szn.3.b','month.szn.3.n','month.szn.4.obs','month.szn.4.g','month.szn.4.w','month.szn.4.b','month.szn.4.n','weather.szn.0.obs','weather.szn.0.g','weather.szn.0.w','weather.szn.0.b','weather.szn.0.n','weather.szn.1.obs','weather.szn.1.g','weather.szn.1.w','weather.szn.1.b','weather.szn.1.n','weather.szn.2.obs','weather.szn.2.g','weather.szn.2.w','weather.szn.2.b','weather.szn.2.n')
+
+# ##### Same process, but selecting cells within a buffer around occupied cells within that year #####
+# ## set buffer size
+# b <- 78   ## median dispersal distances from birth to reproductive mound = 77.5 m (females) and 40 m (males)
+# ## set sample size
+# samp.size <- 100
+# ## set up where to save results for:
+# OUT1 <- NULL ## no lag
+# OUT2 <- NULL ## 6-month lag
+# OUT3 <- NULL ## 1-year lag
+# write.table(OUT1, '/Users/Avril/Documents/krat_remote_sensing/intermediate_data/buffered_cells_data_nolag.txt',
+#             row.names = FALSE, quote=FALSE, sep='\t', col.names=FALSE)
+# write.table(OUT2, '/Users/Avril/Documents/krat_remote_sensing/intermediate_data/buffered_cells_data_6monthlag.txt',
+#             row.names = FALSE, quote=FALSE, sep='\t', col.names=FALSE)
+# write.table(OUT3, '/Users/Avril/Documents/krat_remote_sensing/intermediate_data/buffered_cells_data_1yearlag.txt',
+#             row.names = FALSE, quote=FALSE, sep='\t', col.names=FALSE)
+# pdf('/Users/Avril/Desktop/mounds_and_buffers_by_year.pdf', width=6, height=6)
+# for(y in unique(mnd.offs$year)){
+#   print(y)
+#   sub <- mnd.offs[mnd.offs$year == y,]
+#   ## subset to mounds occupied in the focal year and get buffer
+#   temp.locs <- all.locs[all.locs$terr %in% sub$database.name,]
+#   buf <- extract(ls5.stack$B1_sr, temp.locs, buffer=b, df=TRUE, cellnumbers=TRUE)
+#   buf <- unique(buf[,2])
+#   empties <- buf[buf %notin% sub$cell.num]
+#   empties <- sample(empties, size=samp.size, replace=FALSE)
 # 
-# ## make sure that all mounds with new offspring are being accounted for in TC analysis -- looks good
-# # pop.dat <- pop.dat[order(pop.dat$year),]
-# # pdf('/Users/Avril/Desktop/new_offspring_in_KRATP.pdf', width=6, height=6.5)
-# # for(i in unique(pop.dat$year)){
-# #   temp <- pop.dat[which(pop.dat$year == i & pop.dat$offspring == 1),]
-# #   plot(temp$long, temp$lat, pch=19, col=alpha('dodgerblue', 0.3), main=i, xlab='Longitude', ylab='Latitude',
-# #        xlim=c(min(pop.dat$long)-10, max(pop.dat$long)+10), ylim=c(min(pop.dat$lat)-10, max(pop.dat$lat)+10))
-# # }
-# # dev.off()
+#   ## plot what this buffer would extract
+#   raster::plotRGB(ls5.stack, r=3,g=2,b=1, ext=ext, scale=ls5.stack@data@max[c(3,2,1)])
+#     points(temp.locs, pch=19, cex=0.2)
+#     r2 <- ls5.stack$B1_sr
+#     r2[setdiff(seq_len(ncell(r2)), buf)] <- NA
+#     r2[!is.na(r2)] <- 1
+#     plot(rasterToPolygons(r2, dissolve=TRUE), add=TRUE, border='red', lwd=2)
+#       graphics::legend('topleft', legend=y, bty='n', text.col='red')
 # 
-# ## get annual offspring totals
-# OUT <- NULL
-# for(i in unique(off$year)){
-#   temp <- off[off$year == i,]
-#   save <- c(i, sum(temp$num.off))
-#   OUT <- rbind(OUT, save)
+#   ct <- 1
+#   for(i in empties){
+#     print(ct/samp.size)
+#     save.1 <- NULL
+#     save.2 <- NULL
+#     save.3 <- NULL
+#     ## save relevant environmental information for each lag approach
+#     tc.temp.nolag <- sub.tc.dat[which(sub.tc.dat$cell.num == i & sub.tc.dat$year == y),]
+#     tc.temp.6molag <- sub.tc.dat[which(sub.tc.dat$cell.num == i & sub.tc.dat$half.year.lag == y),]
+#     tc.temp.1yearlag <- sub.tc.dat[which(sub.tc.dat$cell.num == i & sub.tc.dat$one.year.lag == y),]
+# 
+#     ## No lag
+#     ## save annual information (number of scenes/observations, annual averages)
+#     save.1$cell.num <- i
+#     save.1$year <- y
+#     save.1$num.obs <- nrow(tc.temp.nolag)
+#     save.1$ann.mean.g <- mean(tc.temp.nolag$z.g, na.rm=TRUE)
+#     save.1$ann.mean.w <- mean(tc.temp.nolag$z.w, na.rm=TRUE)
+#     save.1$ann.mean.b <- mean(tc.temp.nolag$z.b, na.rm=TRUE)
+#     save.1$ann.mean.n <- mean(tc.temp.nolag$z.n, na.rm=TRUE)
+#     ## save month-based season data for each of 4 seasons
+#     save.1$month.szn.1.obs <- nrow(tc.temp.nolag[which(tc.temp.nolag$month.szn == 1),])
+#     save.1$month.szn.1.g <- mean(tc.temp.nolag[which(tc.temp.nolag$month.szn == 1), 'z.g'], na.rm=TRUE)
+#     save.1$month.szn.1.w <- mean(tc.temp.nolag[which(tc.temp.nolag$month.szn == 1), 'z.w'], na.rm=TRUE)
+#     save.1$month.szn.1.b <- mean(tc.temp.nolag[which(tc.temp.nolag$month.szn == 1), 'z.b'], na.rm=TRUE)
+#     save.1$month.szn.1.n <- mean(tc.temp.nolag[which(tc.temp.nolag$month.szn == 1), 'z.n'], na.rm=TRUE)
+#     save.1$month.szn.2.obs <- nrow(tc.temp.nolag[which(tc.temp.nolag$month.szn == 2),])
+#     save.1$month.szn.2.g <- mean(tc.temp.nolag[which(tc.temp.nolag$month.szn == 2), 'z.g'], na.rm=TRUE)
+#     save.1$month.szn.2.w <- mean(tc.temp.nolag[which(tc.temp.nolag$month.szn == 2), 'z.w'], na.rm=TRUE)
+#     save.1$month.szn.2.b <- mean(tc.temp.nolag[which(tc.temp.nolag$month.szn == 2), 'z.b'], na.rm=TRUE)
+#     save.1$month.szn.2.n <- mean(tc.temp.nolag[which(tc.temp.nolag$month.szn == 2), 'z.n'], na.rm=TRUE)
+#     save.1$month.szn.3.obs <- nrow(tc.temp.nolag[which(tc.temp.nolag$month.szn == 3),])
+#     save.1$month.szn.3.g <- mean(tc.temp.nolag[which(tc.temp.nolag$month.szn == 3), 'z.g'], na.rm=TRUE)
+#     save.1$month.szn.3.w <- mean(tc.temp.nolag[which(tc.temp.nolag$month.szn == 3), 'z.w'], na.rm=TRUE)
+#     save.1$month.szn.3.b <- mean(tc.temp.nolag[which(tc.temp.nolag$month.szn == 3), 'z.b'], na.rm=TRUE)
+#     save.1$month.szn.3.n <- mean(tc.temp.nolag[which(tc.temp.nolag$month.szn == 3), 'z.n'], na.rm=TRUE)
+#     save.1$month.szn.4.obs <- nrow(tc.temp.nolag[which(tc.temp.nolag$month.szn == 4),])
+#     save.1$month.szn.4.g <- mean(tc.temp.nolag[which(tc.temp.nolag$month.szn == 4), 'z.g'], na.rm=TRUE)
+#     save.1$month.szn.4.w <- mean(tc.temp.nolag[which(tc.temp.nolag$month.szn == 4), 'z.w'], na.rm=TRUE)
+#     save.1$month.szn.4.b <- mean(tc.temp.nolag[which(tc.temp.nolag$month.szn == 4), 'z.b'], na.rm=TRUE)
+#     save.1$month.szn.4.n <- mean(tc.temp.nolag[which(tc.temp.nolag$month.szn == 4), 'z.n'], na.rm=TRUE)
+#     ## save weather-based season data for each of 3 seasons
+#     save.1$weather.szn.0.obs <- nrow(tc.temp.nolag[which(tc.temp.nolag$weather.szn == 0),])
+#     save.1$weather.szn.0.g <- mean(tc.temp.nolag[which(tc.temp.nolag$weather.szn == 0), 'z.g'], na.rm=TRUE)
+#     save.1$weather.szn.0.w <- mean(tc.temp.nolag[which(tc.temp.nolag$weather.szn == 0), 'z.w'], na.rm=TRUE)
+#     save.1$weather.szn.0.b <- mean(tc.temp.nolag[which(tc.temp.nolag$weather.szn == 0), 'z.b'], na.rm=TRUE)
+#     save.1$weather.szn.0.n <- mean(tc.temp.nolag[which(tc.temp.nolag$weather.szn == 0), 'z.n'], na.rm=TRUE)
+#     save.1$weather.szn.1.obs <- nrow(tc.temp.nolag[which(tc.temp.nolag$weather.szn == 1),])
+#     save.1$weather.szn.1.g <- mean(tc.temp.nolag[which(tc.temp.nolag$weather.szn == 1), 'z.g'], na.rm=TRUE)
+#     save.1$weather.szn.1.w <- mean(tc.temp.nolag[which(tc.temp.nolag$weather.szn == 1), 'z.w'], na.rm=TRUE)
+#     save.1$weather.szn.1.b <- mean(tc.temp.nolag[which(tc.temp.nolag$weather.szn == 1), 'z.b'], na.rm=TRUE)
+#     save.1$weather.szn.1.n <- mean(tc.temp.nolag[which(tc.temp.nolag$weather.szn == 1), 'z.n'], na.rm=TRUE)
+#     save.1$weather.szn.2.obs <- nrow(tc.temp.nolag[which(tc.temp.nolag$weather.szn == 2),])
+#     save.1$weather.szn.2.g <- mean(tc.temp.nolag[which(tc.temp.nolag$weather.szn == 2), 'z.g'], na.rm=TRUE)
+#     save.1$weather.szn.2.w <- mean(tc.temp.nolag[which(tc.temp.nolag$weather.szn == 2), 'z.w'], na.rm=TRUE)
+#     save.1$weather.szn.2.b <- mean(tc.temp.nolag[which(tc.temp.nolag$weather.szn == 2), 'z.b'], na.rm=TRUE)
+#     save.1$weather.szn.2.n <- mean(tc.temp.nolag[which(tc.temp.nolag$weather.szn == 2), 'z.n'], na.rm=TRUE)
+#     OUT1 <- rbind(OUT1, save.1)
+# 
+#     ## 6-month lag
+#     ## save annual information (number of scenes/observations, annual averages)
+#     save.2$cell.num <- i
+#     save.2$year <- y
+#     save.2$num.obs <- nrow(tc.temp.6molag)
+#     save.2$ann.mean.g <- mean(tc.temp.6molag$z.g, na.rm=TRUE)
+#     save.2$ann.mean.w <- mean(tc.temp.6molag$z.w, na.rm=TRUE)
+#     save.2$ann.mean.b <- mean(tc.temp.6molag$z.b, na.rm=TRUE)
+#     save.2$ann.mean.n <- mean(tc.temp.6molag$z.n, na.rm=TRUE)
+#     ## save month-based season data for each of 4 seasons
+#     save.2$month.szn.1.obs <- nrow(tc.temp.6molag[which(tc.temp.6molag$month.szn == 1),])
+#     save.2$month.szn.1.g <- mean(tc.temp.6molag[which(tc.temp.6molag$month.szn == 1), 'z.g'], na.rm=TRUE)
+#     save.2$month.szn.1.w <- mean(tc.temp.6molag[which(tc.temp.6molag$month.szn == 1), 'z.w'], na.rm=TRUE)
+#     save.2$month.szn.1.b <- mean(tc.temp.6molag[which(tc.temp.6molag$month.szn == 1), 'z.b'], na.rm=TRUE)
+#     save.2$month.szn.1.n <- mean(tc.temp.6molag[which(tc.temp.6molag$month.szn == 1), 'z.n'], na.rm=TRUE)
+#     save.2$month.szn.2.obs <- nrow(tc.temp.6molag[which(tc.temp.6molag$month.szn == 2),])
+#     save.2$month.szn.2.g <- mean(tc.temp.6molag[which(tc.temp.6molag$month.szn == 2), 'z.g'], na.rm=TRUE)
+#     save.2$month.szn.2.w <- mean(tc.temp.6molag[which(tc.temp.6molag$month.szn == 2), 'z.w'], na.rm=TRUE)
+#     save.2$month.szn.2.b <- mean(tc.temp.6molag[which(tc.temp.6molag$month.szn == 2), 'z.b'], na.rm=TRUE)
+#     save.2$month.szn.2.n <- mean(tc.temp.6molag[which(tc.temp.6molag$month.szn == 2), 'z.n'], na.rm=TRUE)
+#     save.2$month.szn.3.obs <- nrow(tc.temp.6molag[which(tc.temp.6molag$month.szn == 3),])
+#     save.2$month.szn.3.g <- mean(tc.temp.6molag[which(tc.temp.6molag$month.szn == 3), 'z.g'], na.rm=TRUE)
+#     save.2$month.szn.3.w <- mean(tc.temp.6molag[which(tc.temp.6molag$month.szn == 3), 'z.w'], na.rm=TRUE)
+#     save.2$month.szn.3.b <- mean(tc.temp.6molag[which(tc.temp.6molag$month.szn == 3), 'z.b'], na.rm=TRUE)
+#     save.2$month.szn.3.n <- mean(tc.temp.6molag[which(tc.temp.6molag$month.szn == 3), 'z.n'], na.rm=TRUE)
+#     save.2$month.szn.4.obs <- nrow(tc.temp.6molag[which(tc.temp.6molag$month.szn == 4),])
+#     save.2$month.szn.4.g <- mean(tc.temp.6molag[which(tc.temp.6molag$month.szn == 4), 'z.g'], na.rm=TRUE)
+#     save.2$month.szn.4.w <- mean(tc.temp.6molag[which(tc.temp.6molag$month.szn == 4), 'z.w'], na.rm=TRUE)
+#     save.2$month.szn.4.b <- mean(tc.temp.6molag[which(tc.temp.6molag$month.szn == 4), 'z.b'], na.rm=TRUE)
+#     save.2$month.szn.4.n <- mean(tc.temp.6molag[which(tc.temp.6molag$month.szn == 4), 'z.n'], na.rm=TRUE)
+#     ## save weather-based season data for each of 3 seasons
+#     save.2$weather.szn.0.obs <- nrow(tc.temp.6molag[which(tc.temp.6molag$weather.szn == 0),])
+#     save.2$weather.szn.0.g <- mean(tc.temp.6molag[which(tc.temp.6molag$weather.szn == 0), 'z.g'], na.rm=TRUE)
+#     save.2$weather.szn.0.w <- mean(tc.temp.6molag[which(tc.temp.6molag$weather.szn == 0), 'z.w'], na.rm=TRUE)
+#     save.2$weather.szn.0.b <- mean(tc.temp.6molag[which(tc.temp.6molag$weather.szn == 0), 'z.b'], na.rm=TRUE)
+#     save.2$weather.szn.0.n <- mean(tc.temp.6molag[which(tc.temp.6molag$weather.szn == 0), 'z.n'], na.rm=TRUE)
+#     save.2$weather.szn.1.obs <- nrow(tc.temp.6molag[which(tc.temp.6molag$weather.szn == 1),])
+#     save.2$weather.szn.1.g <- mean(tc.temp.6molag[which(tc.temp.6molag$weather.szn == 1), 'z.g'], na.rm=TRUE)
+#     save.2$weather.szn.1.w <- mean(tc.temp.6molag[which(tc.temp.6molag$weather.szn == 1), 'z.w'], na.rm=TRUE)
+#     save.2$weather.szn.1.b <- mean(tc.temp.6molag[which(tc.temp.6molag$weather.szn == 1), 'z.b'], na.rm=TRUE)
+#     save.2$weather.szn.1.n <- mean(tc.temp.6molag[which(tc.temp.6molag$weather.szn == 1), 'z.n'], na.rm=TRUE)
+#     save.2$weather.szn.2.obs <- nrow(tc.temp.6molag[which(tc.temp.6molag$weather.szn == 2),])
+#     save.2$weather.szn.2.g <- mean(tc.temp.6molag[which(tc.temp.6molag$weather.szn == 2), 'z.g'], na.rm=TRUE)
+#     save.2$weather.szn.2.w <- mean(tc.temp.6molag[which(tc.temp.6molag$weather.szn == 2), 'z.w'], na.rm=TRUE)
+#     save.2$weather.szn.2.b <- mean(tc.temp.6molag[which(tc.temp.6molag$weather.szn == 2), 'z.b'], na.rm=TRUE)
+#     save.2$weather.szn.2.n <- mean(tc.temp.6molag[which(tc.temp.6molag$weather.szn == 2), 'z.n'], na.rm=TRUE)
+#     OUT2 <- rbind(OUT2, save.2)
+# 
+#     ## 1-year lag
+#     ## save annual information (number of scenes/observations, annual averages)
+#     save.3$cell.num <- i
+#     save.3$year <- y
+#     save.3$num.obs <- nrow(tc.temp.1yearlag)
+#     save.3$ann.mean.g <- mean(tc.temp.1yearlag$z.g, na.rm=TRUE)
+#     save.3$ann.mean.w <- mean(tc.temp.1yearlag$z.w, na.rm=TRUE)
+#     save.3$ann.mean.b <- mean(tc.temp.1yearlag$z.b, na.rm=TRUE)
+#     save.3$ann.mean.n <- mean(tc.temp.1yearlag$z.n, na.rm=TRUE)
+#     ## save month-based season data for each of 4 seasons
+#     save.3$month.szn.1.obs <- nrow(tc.temp.1yearlag[which(tc.temp.1yearlag$month.szn == 1),])
+#     save.3$month.szn.1.g <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$month.szn == 1), 'z.g'], na.rm=TRUE)
+#     save.3$month.szn.1.w <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$month.szn == 1), 'z.w'], na.rm=TRUE)
+#     save.3$month.szn.1.b <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$month.szn == 1), 'z.b'], na.rm=TRUE)
+#     save.3$month.szn.1.n <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$month.szn == 1), 'z.n'], na.rm=TRUE)
+#     save.3$month.szn.2.obs <- nrow(tc.temp.1yearlag[which(tc.temp.1yearlag$month.szn == 2),])
+#     save.3$month.szn.2.g <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$month.szn == 2), 'z.g'], na.rm=TRUE)
+#     save.3$month.szn.2.w <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$month.szn == 2), 'z.w'], na.rm=TRUE)
+#     save.3$month.szn.2.b <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$month.szn == 2), 'z.b'], na.rm=TRUE)
+#     save.3$month.szn.2.n <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$month.szn == 2), 'z.n'], na.rm=TRUE)
+#     save.3$month.szn.3.obs <- nrow(tc.temp.1yearlag[which(tc.temp.1yearlag$month.szn == 3),])
+#     save.3$month.szn.3.g <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$month.szn == 3), 'z.g'], na.rm=TRUE)
+#     save.3$month.szn.3.w <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$month.szn == 3), 'z.w'], na.rm=TRUE)
+#     save.3$month.szn.3.b <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$month.szn == 3), 'z.b'], na.rm=TRUE)
+#     save.3$month.szn.3.n <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$month.szn == 3), 'z.n'], na.rm=TRUE)
+#     save.3$month.szn.4.obs <- nrow(tc.temp.1yearlag[which(tc.temp.1yearlag$month.szn == 4),])
+#     save.3$month.szn.4.g <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$month.szn == 4), 'z.g'], na.rm=TRUE)
+#     save.3$month.szn.4.w <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$month.szn == 4), 'z.w'], na.rm=TRUE)
+#     save.3$month.szn.4.b <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$month.szn == 4), 'z.b'], na.rm=TRUE)
+#     save.3$month.szn.4.n <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$month.szn == 4), 'z.n'], na.rm=TRUE)
+#     ## save weather-based season data for each of 3 seasons
+#     save.3$weather.szn.0.obs <- nrow(tc.temp.1yearlag[which(tc.temp.1yearlag$weather.szn == 0),])
+#     save.3$weather.szn.0.g <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$weather.szn == 0), 'z.g'], na.rm=TRUE)
+#     save.3$weather.szn.0.w <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$weather.szn == 0), 'z.w'], na.rm=TRUE)
+#     save.3$weather.szn.0.b <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$weather.szn == 0), 'z.b'], na.rm=TRUE)
+#     save.3$weather.szn.0.n <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$weather.szn == 0), 'z.n'], na.rm=TRUE)
+#     save.3$weather.szn.1.obs <- nrow(tc.temp.1yearlag[which(tc.temp.1yearlag$weather.szn == 1),])
+#     save.3$weather.szn.1.g <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$weather.szn == 1), 'z.g'], na.rm=TRUE)
+#     save.3$weather.szn.1.w <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$weather.szn == 1), 'z.w'], na.rm=TRUE)
+#     save.3$weather.szn.1.b <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$weather.szn == 1), 'z.b'], na.rm=TRUE)
+#     save.3$weather.szn.1.n <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$weather.szn == 1), 'z.n'], na.rm=TRUE)
+#     save.3$weather.szn.2.obs <- nrow(tc.temp.1yearlag[which(tc.temp.1yearlag$weather.szn == 2),])
+#     save.3$weather.szn.2.g <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$weather.szn == 2), 'z.g'], na.rm=TRUE)
+#     save.3$weather.szn.2.w <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$weather.szn == 2), 'z.w'], na.rm=TRUE)
+#     save.3$weather.szn.2.b <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$weather.szn == 2), 'z.b'], na.rm=TRUE)
+#     save.3$weather.szn.2.n <- mean(tc.temp.1yearlag[which(tc.temp.1yearlag$weather.szn == 2), 'z.n'], na.rm=TRUE)
+#     OUT3 <- rbind(OUT3, save.3)
+# 
+#     ct <- ct+1
+#   }
+#   write.table(OUT1, '/Users/Avril/Documents/krat_remote_sensing/intermediate_data/buffered_cells_data_nolag.txt',
+#               row.names = FALSE, quote=FALSE, sep='\t', append=TRUE, col.names=FALSE)
+#   write.table(OUT2, '/Users/Avril/Documents/krat_remote_sensing/intermediate_data/buffered_cells_data_6monthlag.txt',
+#               row.names = FALSE, quote=FALSE, sep='\t', append=TRUE, col.names=FALSE)
+#   write.table(OUT3, '/Users/Avril/Documents/krat_remote_sensing/intermediate_data/buffered_cells_data_1yearlag.txt',
+#               row.names = FALSE, quote=FALSE, sep='\t', append=TRUE, col.names=FALSE)
+#   OUT1 <- NULL ## no lag
+#   OUT2 <- NULL ## 6-month lag
+#   OUT3 <- NULL ## 1-year lag
 # }
-# off.tot <- as.data.frame(OUT)
-# colnames(off.tot) <- c('year','total.off')
-# year.dat <- merge(year.dat, off.tot, by='year')
-# 
-# ## plot some relationships between TC mean values and year offspring totals
-# ## no obvious relationships between TC metrics averaged over the landscape seasonally/annually and total # of offspring
-# ## produced in the year at all mounds
-# plot(year.dat$mean.g, year.dat$total.off, pch=19, col='springgreen4')
-# plot(year.dat$mean.offs.g, year.dat$total.off, pch=19, col='springgreen4')
-# plot(year.dat$mean.mon.g, year.dat$total.off, pch=19, col='springgreen4')
-# plot(year.dat$mean.win.g, year.dat$total.off, pch=19, col='springgreen4')
-# plot(year.dat$mean.b, year.dat$total.off, pch=19, col='tan4')
-# plot(year.dat$mean.offs.b, year.dat$total.off, pch=19, col='tan4')
-# plot(year.dat$mean.mon.b, year.dat$total.off, pch=19, col='tan4')
-# plot(year.dat$mean.win.b, year.dat$total.off, pch=19, col='tan4')
-# plot(year.dat$mean.w, year.dat$total.off, pch=19, col='dodgerblue')
-# plot(year.dat$mean.offs.w, year.dat$total.off, pch=19, col='dodgerblue')
-# plot(year.dat$mean.mon.w, year.dat$total.off, pch=19, col='dodgerblue')
-# plot(year.dat$mean.win.w, year.dat$total.off, pch=19, col='dodgerblue')
-# summary(lm(year.dat$total.off ~ year.dat$mean.win.w))
-# 
-# ## try zooming in to more local relationships:
-# ## (1) annual and seasonal mean TC metrics within 1 cell : # offspring produced in that cell
-# ## (2) annual and seasonal mean TC metrics for 1 cell + adjacent cells : # offspring produced in the focal cell
-# ## collapse offspring count info by cell # only (get rid of mound info)
-# ##### !!! also need to do something with TC values for cells with mounds that produced no offspring. idk how !!! #####
-# OUT <- NULL
-# for(i in unique(off$year)){
-#   temp <- off[off$year == i,]
-#   for(j in unique(temp$cell.num)){
-#     save <- c(i, j, sum(temp[which(temp$cell.num == j), 'num.off']))
-#     OUT <- rbind(OUT, save)
+# dev.off()
+
+##### Read in buffer cell data #####
+buffer.nolag <- read.table('/Users/Avril/Documents/krat_remote_sensing/intermediate_data/buffered_cells_data_nolag.txt', sep='\t')
+colnames(buffer.nolag) <- c('cell.num','year','num.obs','ann.mean.g','ann.mean.w','ann.mean.b','ann.mean.n','month.szn.1.obs','month.szn.1.g','month.szn.1.w','month.szn.1.b','month.szn.1.n','month.szn.2.obs','month.szn.2.g','month.szn.2.w','month.szn.2.b','month.szn.2.n','month.szn.3.obs','month.szn.3.g','month.szn.3.w','month.szn.3.b','month.szn.3.n','month.szn.4.obs','month.szn.4.g','month.szn.4.w','month.szn.4.b','month.szn.4.n','weather.szn.0.obs','weather.szn.0.g','weather.szn.0.w','weather.szn.0.b','weather.szn.0.n','weather.szn.1.obs','weather.szn.1.g','weather.szn.1.w','weather.szn.1.b','weather.szn.1.n','weather.szn.2.obs','weather.szn.2.g','weather.szn.2.w','weather.szn.2.b','weather.szn.2.n')
+buffer.6molag <- read.table('/Users/Avril/Documents/krat_remote_sensing/intermediate_data/buffered_cells_data_6monthlag.txt', sep='\t')
+colnames(buffer.6molag) <- c('cell.num','year','num.obs','ann.mean.g','ann.mean.w','ann.mean.b','ann.mean.n','month.szn.1.obs','month.szn.1.g','month.szn.1.w','month.szn.1.b','month.szn.1.n','month.szn.2.obs','month.szn.2.g','month.szn.2.w','month.szn.2.b','month.szn.2.n','month.szn.3.obs','month.szn.3.g','month.szn.3.w','month.szn.3.b','month.szn.3.n','month.szn.4.obs','month.szn.4.g','month.szn.4.w','month.szn.4.b','month.szn.4.n','weather.szn.0.obs','weather.szn.0.g','weather.szn.0.w','weather.szn.0.b','weather.szn.0.n','weather.szn.1.obs','weather.szn.1.g','weather.szn.1.w','weather.szn.1.b','weather.szn.1.n','weather.szn.2.obs','weather.szn.2.g','weather.szn.2.w','weather.szn.2.b','weather.szn.2.n')
+buffer.1yrlag <- read.table('/Users/Avril/Documents/krat_remote_sensing/intermediate_data/buffered_cells_data_1yearlag.txt', sep='\t')
+colnames(buffer.1yrlag) <- c('cell.num','year','num.obs','ann.mean.g','ann.mean.w','ann.mean.b','ann.mean.n','month.szn.1.obs','month.szn.1.g','month.szn.1.w','month.szn.1.b','month.szn.1.n','month.szn.2.obs','month.szn.2.g','month.szn.2.w','month.szn.2.b','month.szn.2.n','month.szn.3.obs','month.szn.3.g','month.szn.3.w','month.szn.3.b','month.szn.3.n','month.szn.4.obs','month.szn.4.g','month.szn.4.w','month.szn.4.b','month.szn.4.n','weather.szn.0.obs','weather.szn.0.g','weather.szn.0.w','weather.szn.0.b','weather.szn.0.n','weather.szn.1.obs','weather.szn.1.g','weather.szn.1.w','weather.szn.1.b','weather.szn.1.n','weather.szn.2.obs','weather.szn.2.g','weather.szn.2.w','weather.szn.2.b','weather.szn.2.n')
+
+##### Viz #####
+
+## visualize some results - occupied mounds only -- annual means
+pdf('/Users/Avril/Desktop/annual_TC_means_vs_fitnesses.pdf', width=12, height=4)
+par(mfrow=c(1,3))
+i <- 1
+while(i == 1){
+plot(random.mnd.nolag$ann.mean.b,   random.mnd.nolag$num.off,    col=alpha(b.col, 0.4), pch=19, xlab='Mean annual brightness', ylab='Number of offspring', main='No lag')
+plot(random.mnd.6molag$ann.mean.b,  random.mnd.6molag$num.off,   col=alpha(b.col, 0.4), pch=19, xlab='Mean annual brightness', ylab='Number of offspring', main='6-month lag')
+plot(random.mnd.1yrlag$ann.mean.b,  random.mnd.1yrlag$num.off,   col=alpha(b.col, 0.4), pch=19, xlab='Mean annual brightness', ylab='Number of offspring', main='1-year lag')
+
+plot(random.mnd.nolag$ann.mean.w,   random.mnd.nolag$num.off,    col=alpha(w.col, 0.4), pch=19, xlab='Mean annual wetness', ylab='Number of offspring', main='No lag')
+plot(random.mnd.6molag$ann.mean.w,  random.mnd.6molag$num.off,   col=alpha(w.col, 0.4), pch=19, xlab='Mean annual wetness', ylab='Number of offspring', main='6-month lag')
+plot(random.mnd.1yrlag$ann.mean.w,  random.mnd.1yrlag$num.off,   col=alpha(w.col, 0.4), pch=19, xlab='Mean annual wetness', ylab='Number of offspring', main='1-year lag')
+
+plot(random.mnd.nolag$ann.mean.g,   random.mnd.nolag$num.off,    col=alpha(g.col, 0.4), pch=19, xlab='Mean annual greenness', ylab='Number of offspring', main='No lag')
+plot(random.mnd.6molag$ann.mean.g,  random.mnd.6molag$num.off,   col=alpha(g.col, 0.4), pch=19, xlab='Mean annual greenness', ylab='Number of offspring', main='6-month lag')
+plot(random.mnd.1yrlag$ann.mean.g,  random.mnd.1yrlag$num.off,   col=alpha(g.col, 0.4), pch=19, xlab='Mean annual greenness', ylab='Number of offspring', main='1-year lag')
+
+plot(random.mnd.nolag$ann.mean.n,   random.mnd.nolag$num.off,    col=alpha(n.col, 0.4), pch=19, xlab='Mean annual NDWI', ylab='Number of offspring', main='No lag')
+plot(random.mnd.6molag$ann.mean.n,  random.mnd.6molag$num.off,   col=alpha(n.col, 0.4), pch=19, xlab='Mean annual NDWI', ylab='Number of offspring', main='6-month lag')
+plot(random.mnd.1yrlag$ann.mean.n,  random.mnd.1yrlag$num.off,   col=alpha(n.col, 0.4), pch=19, xlab='Mean annual NDWI', ylab='Number of offspring', main='1-year lag')
+
+plot(random.mnd.nolag$ann.mean.b,   random.mnd.nolag$num.surv,    col=alpha(b.col, 0.4), pch=19, xlab='Mean annual brightness', ylab='Number of surviving offspring', main='No lag')
+plot(random.mnd.6molag$ann.mean.b,  random.mnd.6molag$num.surv,   col=alpha(b.col, 0.4), pch=19, xlab='Mean annual brightness', ylab='Number of surviving offspring', main='6-month lag')
+plot(random.mnd.1yrlag$ann.mean.b,  random.mnd.1yrlag$num.surv,   col=alpha(b.col, 0.4), pch=19, xlab='Mean annual brightness', ylab='Number of surviving offspring', main='1-year lag')
+
+plot(random.mnd.nolag$ann.mean.w,   random.mnd.nolag$num.surv,    col=alpha(w.col, 0.4), pch=19, xlab='Mean annual wetness', ylab='Number of surviving offspring', main='No lag')
+plot(random.mnd.6molag$ann.mean.w,  random.mnd.6molag$num.surv,   col=alpha(w.col, 0.4), pch=19, xlab='Mean annual wetness', ylab='Number of surviving offspring', main='6-month lag')
+plot(random.mnd.1yrlag$ann.mean.w,  random.mnd.1yrlag$num.surv,   col=alpha(w.col, 0.4), pch=19, xlab='Mean annual wetness', ylab='Number of surviving offspring', main='1-year lag')
+
+plot(random.mnd.nolag$ann.mean.g,   random.mnd.nolag$num.surv,    col=alpha(g.col, 0.4), pch=19, xlab='Mean annual greenness', ylab='Number of surviving offspring', main='No lag')
+plot(random.mnd.6molag$ann.mean.g,  random.mnd.6molag$num.surv,   col=alpha(g.col, 0.4), pch=19, xlab='Mean annual greenness', ylab='Number of surviving offspring', main='6-month lag')
+plot(random.mnd.1yrlag$ann.mean.g,  random.mnd.1yrlag$num.surv,   col=alpha(g.col, 0.4), pch=19, xlab='Mean annual greenness', ylab='Number of surviving offspring', main='1-year lag')
+
+plot(random.mnd.nolag$ann.mean.n,   random.mnd.nolag$num.surv,    col=alpha(n.col, 0.4), pch=19, xlab='Mean annual NDWI', ylab='Number of surviving offspring', main='No lag')
+plot(random.mnd.6molag$ann.mean.n,  random.mnd.6molag$num.surv,   col=alpha(n.col, 0.4), pch=19, xlab='Mean annual NDWI', ylab='Number of surviving offspring', main='6-month lag')
+plot(random.mnd.1yrlag$ann.mean.n,  random.mnd.1yrlag$num.surv,   col=alpha(n.col, 0.4), pch=19, xlab='Mean annual NDWI', ylab='Number of surviving offspring', main='1-year lag')
+
+plot(random.mnd.nolag$ann.mean.b,   random.mnd.nolag$avg.age,    col=alpha(b.col, 0.4), pch=19, xlab='Mean annual brightness', ylab='Average age at death', main='No lag')
+plot(random.mnd.6molag$ann.mean.b,  random.mnd.6molag$avg.age,   col=alpha(b.col, 0.4), pch=19, xlab='Mean annual brightness', ylab='Average age at death', main='6-month lag')
+plot(random.mnd.1yrlag$ann.mean.b,  random.mnd.1yrlag$avg.age,   col=alpha(b.col, 0.4), pch=19, xlab='Mean annual brightness', ylab='Average age at death', main='1-year lag')
+
+plot(random.mnd.nolag$ann.mean.w,   random.mnd.nolag$avg.age,    col=alpha(w.col, 0.4), pch=19, xlab='Mean annual wetness', ylab='Average age at death', main='No lag')
+plot(random.mnd.6molag$ann.mean.w,  random.mnd.6molag$avg.age,   col=alpha(w.col, 0.4), pch=19, xlab='Mean annual wetness', ylab='Average age at death', main='6-month lag')
+plot(random.mnd.1yrlag$ann.mean.w,  random.mnd.1yrlag$avg.age,   col=alpha(w.col, 0.4), pch=19, xlab='Mean annual wetness', ylab='Average age at death', main='1-year lag')
+
+plot(random.mnd.nolag$ann.mean.g,   random.mnd.nolag$avg.age,    col=alpha(g.col, 0.4), pch=19, xlab='Mean annual greenness', ylab='Average age at death', main='No lag')
+plot(random.mnd.6molag$ann.mean.g,  random.mnd.6molag$avg.age,   col=alpha(g.col, 0.4), pch=19, xlab='Mean annual greenness', ylab='Average age at death', main='6-month lag')
+plot(random.mnd.1yrlag$ann.mean.g,  random.mnd.1yrlag$avg.age,   col=alpha(g.col, 0.4), pch=19, xlab='Mean annual greenness', ylab='Average age at death', main='1-year lag')
+
+plot(random.mnd.nolag$ann.mean.n,   random.mnd.nolag$avg.age,    col=alpha(n.col, 0.4), pch=19, xlab='Mean annual NDWI', ylab='Average age at death', main='No lag')
+plot(random.mnd.6molag$ann.mean.n,  random.mnd.6molag$avg.age,   col=alpha(n.col, 0.4), pch=19, xlab='Mean annual NDWI', ylab='Average age at death', main='6-month lag')
+plot(random.mnd.1yrlag$ann.mean.n,  random.mnd.1yrlag$avg.age,   col=alpha(n.col, 0.4), pch=19, xlab='Mean annual NDWI', ylab='Average age at death', main='1-year lag')
+i <- i+1
+}
+dev.off()
+
+## visualize some results - occupied mounds only -- weather season 1 (summer rainy season) means
+pdf('/Users/Avril/Desktop/summer_rainy_season_TC_means_vs_fitnesses.pdf', width=12, height=4)
+par(mfrow=c(1,3))
+i <- 1
+while(i == 1){
+  plot(random.mnd.nolag$weather.szn.1.b,   random.mnd.nolag$num.off,    col=alpha(b.col, 0.4), pch=19, xlab='Mean summer rainy season brightness', ylab='Number of offspring', main='No lag')
+  plot(random.mnd.6molag$weather.szn.1.b,  random.mnd.6molag$num.off,   col=alpha(b.col, 0.4), pch=19, xlab='Mean summer rainy season brightness', ylab='Number of offspring', main='6-month lag')
+  plot(random.mnd.1yrlag$weather.szn.1.b,  random.mnd.1yrlag$num.off,   col=alpha(b.col, 0.4), pch=19, xlab='Mean summer rainy season brightness', ylab='Number of offspring', main='1-year lag')
+  
+  plot(random.mnd.nolag$weather.szn.1.w,   random.mnd.nolag$num.off,    col=alpha(w.col, 0.4), pch=19, xlab='Mean summer rainy season wetness', ylab='Number of offspring', main='No lag')
+  plot(random.mnd.6molag$weather.szn.1.w,  random.mnd.6molag$num.off,   col=alpha(w.col, 0.4), pch=19, xlab='Mean summer rainy season wetness', ylab='Number of offspring', main='6-month lag')
+  plot(random.mnd.1yrlag$weather.szn.1.w,  random.mnd.1yrlag$num.off,   col=alpha(w.col, 0.4), pch=19, xlab='Mean summer rainy season wetness', ylab='Number of offspring', main='1-year lag')
+  
+  plot(random.mnd.nolag$weather.szn.1.g,   random.mnd.nolag$num.off,    col=alpha(g.col, 0.4), pch=19, xlab='Mean summer rainy season greenness', ylab='Number of offspring', main='No lag')
+  plot(random.mnd.6molag$weather.szn.1.g,  random.mnd.6molag$num.off,   col=alpha(g.col, 0.4), pch=19, xlab='Mean summer rainy season greenness', ylab='Number of offspring', main='6-month lag')
+  plot(random.mnd.1yrlag$weather.szn.1.g,  random.mnd.1yrlag$num.off,   col=alpha(g.col, 0.4), pch=19, xlab='Mean summer rainy season greenness', ylab='Number of offspring', main='1-year lag')
+  
+  plot(random.mnd.nolag$weather.szn.1.n,   random.mnd.nolag$num.off,    col=alpha(n.col, 0.4), pch=19, xlab='Mean summer rainy season NDWI', ylab='Number of offspring', main='No lag')
+  plot(random.mnd.6molag$weather.szn.1.n,  random.mnd.6molag$num.off,   col=alpha(n.col, 0.4), pch=19, xlab='Mean summer rainy season NDWI', ylab='Number of offspring', main='6-month lag')
+  plot(random.mnd.1yrlag$weather.szn.1.n,  random.mnd.1yrlag$num.off,   col=alpha(n.col, 0.4), pch=19, xlab='Mean summer rainy season NDWI', ylab='Number of offspring', main='1-year lag')
+  
+  plot(random.mnd.nolag$weather.szn.1.b,   random.mnd.nolag$num.surv,    col=alpha(b.col, 0.4), pch=19, xlab='Mean summer rainy season brightness', ylab='Number of surviving offspring', main='No lag')
+  plot(random.mnd.6molag$weather.szn.1.b,  random.mnd.6molag$num.surv,   col=alpha(b.col, 0.4), pch=19, xlab='Mean summer rainy season brightness', ylab='Number of surviving offspring', main='6-month lag')
+  plot(random.mnd.1yrlag$weather.szn.1.b,  random.mnd.1yrlag$num.surv,   col=alpha(b.col, 0.4), pch=19, xlab='Mean summer rainy season brightness', ylab='Number of surviving offspring', main='1-year lag')
+  
+  plot(random.mnd.nolag$weather.szn.1.w,   random.mnd.nolag$num.surv,    col=alpha(w.col, 0.4), pch=19, xlab='Mean summer rainy season wetness', ylab='Number of surviving offspring', main='No lag')
+  plot(random.mnd.6molag$weather.szn.1.w,  random.mnd.6molag$num.surv,   col=alpha(w.col, 0.4), pch=19, xlab='Mean summer rainy season wetness', ylab='Number of surviving offspring', main='6-month lag')
+  plot(random.mnd.1yrlag$weather.szn.1.w,  random.mnd.1yrlag$num.surv,   col=alpha(w.col, 0.4), pch=19, xlab='Mean summer rainy season wetness', ylab='Number of surviving offspring', main='1-year lag')
+  
+  plot(random.mnd.nolag$weather.szn.1.g,   random.mnd.nolag$num.surv,    col=alpha(g.col, 0.4), pch=19, xlab='Mean summer rainy season greenness', ylab='Number of surviving offspring', main='No lag')
+  plot(random.mnd.6molag$weather.szn.1.g,  random.mnd.6molag$num.surv,   col=alpha(g.col, 0.4), pch=19, xlab='Mean summer rainy season greenness', ylab='Number of surviving offspring', main='6-month lag')
+  plot(random.mnd.1yrlag$weather.szn.1.g,  random.mnd.1yrlag$num.surv,   col=alpha(g.col, 0.4), pch=19, xlab='Mean summer rainy season greenness', ylab='Number of surviving offspring', main='1-year lag')
+  
+  plot(random.mnd.nolag$weather.szn.1.n,   random.mnd.nolag$num.surv,    col=alpha(n.col, 0.4), pch=19, xlab='Mean summer rainy season NDWI', ylab='Number of surviving offspring', main='No lag')
+  plot(random.mnd.6molag$weather.szn.1.n,  random.mnd.6molag$num.surv,   col=alpha(n.col, 0.4), pch=19, xlab='Mean summer rainy season NDWI', ylab='Number of surviving offspring', main='6-month lag')
+  plot(random.mnd.1yrlag$weather.szn.1.n,  random.mnd.1yrlag$num.surv,   col=alpha(n.col, 0.4), pch=19, xlab='Mean summer rainy season NDWI', ylab='Number of surviving offspring', main='1-year lag')
+  
+  plot(random.mnd.nolag$weather.szn.1.b,   random.mnd.nolag$avg.age,    col=alpha(b.col, 0.4), pch=19, xlab='Mean summer rainy season brightness', ylab='Average age at death', main='No lag')
+  plot(random.mnd.6molag$weather.szn.1.b,  random.mnd.6molag$avg.age,   col=alpha(b.col, 0.4), pch=19, xlab='Mean summer rainy season brightness', ylab='Average age at death', main='6-month lag')
+  plot(random.mnd.1yrlag$weather.szn.1.b,  random.mnd.1yrlag$avg.age,   col=alpha(b.col, 0.4), pch=19, xlab='Mean summer rainy season brightness', ylab='Average age at death', main='1-year lag')
+  
+  plot(random.mnd.nolag$weather.szn.1.w,   random.mnd.nolag$avg.age,    col=alpha(w.col, 0.4), pch=19, xlab='Mean summer rainy season wetness', ylab='Average age at death', main='No lag')
+  plot(random.mnd.6molag$weather.szn.1.w,  random.mnd.6molag$avg.age,   col=alpha(w.col, 0.4), pch=19, xlab='Mean summer rainy season wetness', ylab='Average age at death', main='6-month lag')
+  plot(random.mnd.1yrlag$weather.szn.1.w,  random.mnd.1yrlag$avg.age,   col=alpha(w.col, 0.4), pch=19, xlab='Mean summer rainy season wetness', ylab='Average age at death', main='1-year lag')
+  
+  plot(random.mnd.nolag$weather.szn.1.g,   random.mnd.nolag$avg.age,    col=alpha(g.col, 0.4), pch=19, xlab='Mean summer rainy season greenness', ylab='Average age at death', main='No lag')
+  plot(random.mnd.6molag$weather.szn.1.g,  random.mnd.6molag$avg.age,   col=alpha(g.col, 0.4), pch=19, xlab='Mean summer rainy season greenness', ylab='Average age at death', main='6-month lag')
+  plot(random.mnd.1yrlag$weather.szn.1.g,  random.mnd.1yrlag$avg.age,   col=alpha(g.col, 0.4), pch=19, xlab='Mean summer rainy season greenness', ylab='Average age at death', main='1-year lag')
+  
+  plot(random.mnd.nolag$weather.szn.1.n,   random.mnd.nolag$avg.age,    col=alpha(n.col, 0.4), pch=19, xlab='Mean summer rainy season NDWI', ylab='Average age at death', main='No lag')
+  plot(random.mnd.6molag$weather.szn.1.n,  random.mnd.6molag$avg.age,   col=alpha(n.col, 0.4), pch=19, xlab='Mean summer rainy season NDWI', ylab='Average age at death', main='6-month lag')
+  plot(random.mnd.1yrlag$weather.szn.1.n,  random.mnd.1yrlag$avg.age,   col=alpha(n.col, 0.4), pch=19, xlab='Mean summer rainy season NDWI', ylab='Average age at death', main='1-year lag')
+  i <- i+1
+}
+dev.off()
+
+## visualize some results - occupied mounds only -- weather season 2 (winter rainy season) means
+pdf('/Users/Avril/Desktop/winter_rainy_season_TC_means_vs_fitnesses.pdf', width=12, height=4)
+par(mfrow=c(1,3))
+i <- 1
+while(i == 1){
+  plot(random.mnd.nolag$weather.szn.2.b,   random.mnd.nolag$num.off,    col=alpha(b.col, 0.4), pch=19, xlab='Mean winter rainy season brightness', ylab='Number of offspring', main='No lag')
+  plot(random.mnd.6molag$weather.szn.2.b,  random.mnd.6molag$num.off,   col=alpha(b.col, 0.4), pch=19, xlab='Mean winter rainy season brightness', ylab='Number of offspring', main='6-month lag')
+  plot(random.mnd.1yrlag$weather.szn.2.b,  random.mnd.1yrlag$num.off,   col=alpha(b.col, 0.4), pch=19, xlab='Mean winter rainy season brightness', ylab='Number of offspring', main='1-year lag')
+  
+  plot(random.mnd.nolag$weather.szn.2.w,   random.mnd.nolag$num.off,    col=alpha(w.col, 0.4), pch=19, xlab='Mean winter rainy season wetness', ylab='Number of offspring', main='No lag')
+  plot(random.mnd.6molag$weather.szn.2.w,  random.mnd.6molag$num.off,   col=alpha(w.col, 0.4), pch=19, xlab='Mean winter rainy season wetness', ylab='Number of offspring', main='6-month lag')
+  plot(random.mnd.1yrlag$weather.szn.2.w,  random.mnd.1yrlag$num.off,   col=alpha(w.col, 0.4), pch=19, xlab='Mean winter rainy season wetness', ylab='Number of offspring', main='1-year lag')
+  
+  plot(random.mnd.nolag$weather.szn.2.g,   random.mnd.nolag$num.off,    col=alpha(g.col, 0.4), pch=19, xlab='Mean winter rainy season greenness', ylab='Number of offspring', main='No lag')
+  plot(random.mnd.6molag$weather.szn.2.g,  random.mnd.6molag$num.off,   col=alpha(g.col, 0.4), pch=19, xlab='Mean winter rainy season greenness', ylab='Number of offspring', main='6-month lag')
+  plot(random.mnd.1yrlag$weather.szn.2.g,  random.mnd.1yrlag$num.off,   col=alpha(g.col, 0.4), pch=19, xlab='Mean winter rainy season greenness', ylab='Number of offspring', main='1-year lag')
+  
+  plot(random.mnd.nolag$weather.szn.2.n,   random.mnd.nolag$num.off,    col=alpha(n.col, 0.4), pch=19, xlab='Mean winter rainy season NDWI', ylab='Number of offspring', main='No lag')
+  plot(random.mnd.6molag$weather.szn.2.n,  random.mnd.6molag$num.off,   col=alpha(n.col, 0.4), pch=19, xlab='Mean winter rainy season NDWI', ylab='Number of offspring', main='6-month lag')
+  plot(random.mnd.1yrlag$weather.szn.2.n,  random.mnd.1yrlag$num.off,   col=alpha(n.col, 0.4), pch=19, xlab='Mean winter rainy season NDWI', ylab='Number of offspring', main='1-year lag')
+  
+  plot(random.mnd.nolag$weather.szn.2.b,   random.mnd.nolag$num.surv,    col=alpha(b.col, 0.4), pch=19, xlab='Mean winter rainy season brightness', ylab='Number of surviving offspring', main='No lag')
+  plot(random.mnd.6molag$weather.szn.2.b,  random.mnd.6molag$num.surv,   col=alpha(b.col, 0.4), pch=19, xlab='Mean winter rainy season brightness', ylab='Number of surviving offspring', main='6-month lag')
+  plot(random.mnd.1yrlag$weather.szn.2.b,  random.mnd.1yrlag$num.surv,   col=alpha(b.col, 0.4), pch=19, xlab='Mean winter rainy season brightness', ylab='Number of surviving offspring', main='1-year lag')
+  
+  plot(random.mnd.nolag$weather.szn.2.w,   random.mnd.nolag$num.surv,    col=alpha(w.col, 0.4), pch=19, xlab='Mean winter rainy season wetness', ylab='Number of surviving offspring', main='No lag')
+  plot(random.mnd.6molag$weather.szn.2.w,  random.mnd.6molag$num.surv,   col=alpha(w.col, 0.4), pch=19, xlab='Mean winter rainy season wetness', ylab='Number of surviving offspring', main='6-month lag')
+  plot(random.mnd.1yrlag$weather.szn.2.w,  random.mnd.1yrlag$num.surv,   col=alpha(w.col, 0.4), pch=19, xlab='Mean winter rainy season wetness', ylab='Number of surviving offspring', main='1-year lag')
+  
+  plot(random.mnd.nolag$weather.szn.2.g,   random.mnd.nolag$num.surv,    col=alpha(g.col, 0.4), pch=19, xlab='Mean winter rainy season greenness', ylab='Number of surviving offspring', main='No lag')
+  plot(random.mnd.6molag$weather.szn.2.g,  random.mnd.6molag$num.surv,   col=alpha(g.col, 0.4), pch=19, xlab='Mean winter rainy season greenness', ylab='Number of surviving offspring', main='6-month lag')
+  plot(random.mnd.1yrlag$weather.szn.2.g,  random.mnd.1yrlag$num.surv,   col=alpha(g.col, 0.4), pch=19, xlab='Mean winter rainy season greenness', ylab='Number of surviving offspring', main='1-year lag')
+  
+  plot(random.mnd.nolag$weather.szn.2.n,   random.mnd.nolag$num.surv,    col=alpha(n.col, 0.4), pch=19, xlab='Mean winter rainy season NDWI', ylab='Number of surviving offspring', main='No lag')
+  plot(random.mnd.6molag$weather.szn.2.n,  random.mnd.6molag$num.surv,   col=alpha(n.col, 0.4), pch=19, xlab='Mean winter rainy season NDWI', ylab='Number of surviving offspring', main='6-month lag')
+  plot(random.mnd.1yrlag$weather.szn.2.n,  random.mnd.1yrlag$num.surv,   col=alpha(n.col, 0.4), pch=19, xlab='Mean winter rainy season NDWI', ylab='Number of surviving offspring', main='1-year lag')
+  
+  plot(random.mnd.nolag$weather.szn.2.b,   random.mnd.nolag$avg.age,    col=alpha(b.col, 0.4), pch=19, xlab='Mean winter rainy season brightness', ylab='Average age at death', main='No lag')
+  plot(random.mnd.6molag$weather.szn.2.b,  random.mnd.6molag$avg.age,   col=alpha(b.col, 0.4), pch=19, xlab='Mean winter rainy season brightness', ylab='Average age at death', main='6-month lag')
+  plot(random.mnd.1yrlag$weather.szn.2.b,  random.mnd.1yrlag$avg.age,   col=alpha(b.col, 0.4), pch=19, xlab='Mean winter rainy season brightness', ylab='Average age at death', main='1-year lag')
+  
+  plot(random.mnd.nolag$weather.szn.2.w,   random.mnd.nolag$avg.age,    col=alpha(w.col, 0.4), pch=19, xlab='Mean winter rainy season wetness', ylab='Average age at death', main='No lag')
+  plot(random.mnd.6molag$weather.szn.2.w,  random.mnd.6molag$avg.age,   col=alpha(w.col, 0.4), pch=19, xlab='Mean winter rainy season wetness', ylab='Average age at death', main='6-month lag')
+  plot(random.mnd.1yrlag$weather.szn.2.w,  random.mnd.1yrlag$avg.age,   col=alpha(w.col, 0.4), pch=19, xlab='Mean winter rainy season wetness', ylab='Average age at death', main='1-year lag')
+  
+  plot(random.mnd.nolag$weather.szn.2.g,   random.mnd.nolag$avg.age,    col=alpha(g.col, 0.4), pch=19, xlab='Mean winter rainy season greenness', ylab='Average age at death', main='No lag')
+  plot(random.mnd.6molag$weather.szn.2.g,  random.mnd.6molag$avg.age,   col=alpha(g.col, 0.4), pch=19, xlab='Mean winter rainy season greenness', ylab='Average age at death', main='6-month lag')
+  plot(random.mnd.1yrlag$weather.szn.2.g,  random.mnd.1yrlag$avg.age,   col=alpha(g.col, 0.4), pch=19, xlab='Mean winter rainy season greenness', ylab='Average age at death', main='1-year lag')
+  
+  plot(random.mnd.nolag$weather.szn.2.n,   random.mnd.nolag$avg.age,    col=alpha(n.col, 0.4), pch=19, xlab='Mean winter rainy season NDWI', ylab='Average age at death', main='No lag')
+  plot(random.mnd.6molag$weather.szn.2.n,  random.mnd.6molag$avg.age,   col=alpha(n.col, 0.4), pch=19, xlab='Mean winter rainy season NDWI', ylab='Average age at death', main='6-month lag')
+  plot(random.mnd.1yrlag$weather.szn.2.n,  random.mnd.1yrlag$avg.age,   col=alpha(n.col, 0.4), pch=19, xlab='Mean winter rainy season NDWI', ylab='Average age at death', main='1-year lag')
+  i <- i+1
+}
+dev.off()
+
+#### value distributions for occupied, buffer unoccupied, and non-buffer
+pdf('/Users/Avril/Desktop/values_distributions_for_cell_types.pdf', height=12, width=6)
+par(mfrow=c(4,1), mar=c(2.6,2.6,1.6,1.1))
+## across all years, cells
+## brightness
+plot(density(c(random.mnd.nolag$ann.mean.b, unocc.nolag$ann.mean.b, buffer.nolag$ann.mean.b)), col='transparent', main='All years',
+     ylim=c(0,max(c(density(random.mnd.nolag$ann.mean.b)$y, density(unocc.nolag$ann.mean.b)$y, density(buffer.nolag$ann.mean.b)$y))), 
+     xlim=c(min(c(random.mnd.nolag$ann.mean.b, buffer.nolag$ann.mean.b, unocc.nolag$ann.mean.b))-0.75,
+            max(c(random.mnd.nolag$ann.mean.b, buffer.nolag$ann.mean.b, unocc.nolag$ann.mean.b))+0.75), xlab='z(Brightness)')
+  lines(density(random.mnd.nolag$ann.mean.b), col=alpha(b.col, 1))
+  polygon(density(random.mnd.nolag$ann.mean.b), col=alpha(b.col, 1), border='black')
+  lines(density(buffer.nolag$ann.mean.b), col=alpha(b.col, 0.67))
+  polygon(density(buffer.nolag$ann.mean.b), col=alpha(b.col, 0.67), border='black')
+  lines(density(unocc.nolag$ann.mean.b), col=alpha(b.col, 0.33))
+  polygon(density(unocc.nolag$ann.mean.b), col=alpha(b.col, 0.33), border='black')
+  legend('topright', fill=c(b.col, alpha(b.col, 0.67), alpha(b.col, 0.33)), title='Brightness',
+         legend=c('Mound cells','Buffer cells','Unoccupied cells'), bty='n', inset=0.02)
+## greenness
+plot(density(c(random.mnd.nolag$ann.mean.g, unocc.nolag$ann.mean.g, buffer.nolag$ann.mean.g)), col='transparent', main='',
+     ylim=c(0,max(c(density(random.mnd.nolag$ann.mean.g)$y, density(unocc.nolag$ann.mean.g)$y, density(buffer.nolag$ann.mean.g)$y))), 
+     xlim=c(min(c(random.mnd.nolag$ann.mean.g, buffer.nolag$ann.mean.g, unocc.nolag$ann.mean.g))-0.75,
+            max(c(random.mnd.nolag$ann.mean.g, buffer.nolag$ann.mean.g, unocc.nolag$ann.mean.g))+0.75), xlab='z(Greenness)')
+  lines(density(random.mnd.nolag$ann.mean.g), col=alpha(g.col, 1))
+  polygon(density(random.mnd.nolag$ann.mean.g), col=alpha(g.col, 1), border='black')
+  lines(density(buffer.nolag$ann.mean.g), col=alpha(g.col, 0.67))
+  polygon(density(buffer.nolag$ann.mean.g), col=alpha(g.col, 0.67), border='black')
+  lines(density(unocc.nolag$ann.mean.g), col=alpha(g.col, 0.33))
+  polygon(density(unocc.nolag$ann.mean.g), col=alpha(g.col, 0.33), border='black')
+  legend('topright', fill=c(g.col, alpha(g.col, 0.67), alpha(g.col, 0.33)), title='Greenness',
+         legend=c('Mound cells','Buffer cells','Unoccupied cells'), bty='n', inset=0.02)
+## wetness
+plot(density(c(random.mnd.nolag$ann.mean.w, unocc.nolag$ann.mean.w, buffer.nolag$ann.mean.w)), col='transparent', main='',
+     ylim=c(0,max(c(density(random.mnd.nolag$ann.mean.w)$y, density(unocc.nolag$ann.mean.w)$y, density(buffer.nolag$ann.mean.w)$y))), 
+     xlim=c(min(c(random.mnd.nolag$ann.mean.w, buffer.nolag$ann.mean.w, unocc.nolag$ann.mean.w))-0.75,
+            max(c(random.mnd.nolag$ann.mean.w, buffer.nolag$ann.mean.w, unocc.nolag$ann.mean.w))+0.75), xlab='z(Wetness)')
+  lines(density(random.mnd.nolag$ann.mean.w), col=alpha(w.col, 1))
+  polygon(density(random.mnd.nolag$ann.mean.w), col=alpha(w.col, 1), border='black')
+  lines(density(buffer.nolag$ann.mean.w), col=alpha(w.col, 0.67))
+  polygon(density(buffer.nolag$ann.mean.w), col=alpha(w.col, 0.67), border='black')
+  lines(density(unocc.nolag$ann.mean.w), col=alpha(w.col, 0.33))
+  polygon(density(unocc.nolag$ann.mean.w), col=alpha(w.col, 0.33), border='black')
+  legend('topright', fill=c(w.col, alpha(w.col, 0.67), alpha(w.col, 0.33)), title='Wetness',
+         legend=c('Mound cells','Buffer cells','Unoccupied cells'), bty='n', inset=0.02)
+## NDWI
+plot(density(c(random.mnd.nolag$ann.mean.n, unocc.nolag$ann.mean.n, buffer.nolag$ann.mean.n)), col='transparent', main='',
+     ylim=c(0,max(c(density(random.mnd.nolag$ann.mean.n)$y, density(unocc.nolag$ann.mean.n)$y, density(buffer.nolag$ann.mean.n)$y))), 
+     xlim=c(min(c(random.mnd.nolag$ann.mean.n, buffer.nolag$ann.mean.n, unocc.nolag$ann.mean.n))-0.75,
+            max(c(random.mnd.nolag$ann.mean.n, buffer.nolag$ann.mean.n, unocc.nolag$ann.mean.n))+0.75), xlab='z(NDWI)')
+  lines(density(random.mnd.nolag$ann.mean.n), col=alpha(n.col, 1))
+  polygon(density(random.mnd.nolag$ann.mean.n), col=alpha(n.col, 1), border='black')
+  lines(density(buffer.nolag$ann.mean.n), col=alpha(n.col, 0.67))
+  polygon(density(buffer.nolag$ann.mean.n), col=alpha(n.col, 0.67), border='black')
+  lines(density(unocc.nolag$ann.mean.n), col=alpha(n.col, 0.33))
+  polygon(density(unocc.nolag$ann.mean.n), col=alpha(n.col, 0.33), border='black')
+  legend('topright', fill=c(n.col, alpha(n.col, 0.67), alpha(n.col, 0.33)), title='NDWI',
+         legend=c('Mound cells','Buffer cells','Unoccupied cells'), bty='n', inset=0.02)
+
+## by year
+for(y in unique(random.mnd.nolag$year)){
+  mnds <- random.mnd.nolag[random.mnd.nolag$year == y,]
+  unoc <- unocc.nolag[unocc.nolag$year == y,]
+  buff <- buffer.nolag[buffer.nolag$year == y,]
+  ## brightness
+  plot(density(c(mnds$ann.mean.b, unoc$ann.mean.b, buff$ann.mean.b)), col='transparent', main=y,
+       ylim=c(0,max(c(density(mnds$ann.mean.b)$y, density(unoc$ann.mean.b)$y, density(buff$ann.mean.b)$y))), 
+       xlim=c(min(c(random.mnd.nolag$ann.mean.b, buffer.nolag$ann.mean.b, unocc.nolag$ann.mean.b))-0.75,
+              max(c(random.mnd.nolag$ann.mean.b, buffer.nolag$ann.mean.b, unocc.nolag$ann.mean.b))+0.75), xlab='z(Brightness)')
+    lines(density(mnds$ann.mean.b), col=alpha(b.col, 1))
+    polygon(density(mnds$ann.mean.b), col=alpha(b.col, 1), border='black')
+    lines(density(buff$ann.mean.b), col=alpha(b.col, 0.67))
+    polygon(density(buff$ann.mean.b), col=alpha(b.col, 0.67), border='black')
+    lines(density(unoc$ann.mean.b), col=alpha(b.col, 0.33))
+    polygon(density(unoc$ann.mean.b), col=alpha(b.col, 0.33), border='black')
+    legend('topright', fill=c(b.col, alpha(b.col, 0.67), alpha(b.col, 0.33)), title='Brightness',
+           legend=c('Mound cells','Buffer cells','Unoccupied cells'), bty='n', inset=0.02)
+  ## greenness
+  plot(density(c(mnds$ann.mean.g, unoc$ann.mean.g, buff$ann.mean.g)), col='transparent', main='',
+       ylim=c(0,max(c(density(mnds$ann.mean.g)$y, density(unoc$ann.mean.g)$y, density(buff$ann.mean.g)$y))), 
+       xlim=c(min(c(random.mnd.nolag$ann.mean.g, buffer.nolag$ann.mean.g, unocc.nolag$ann.mean.g))-0.75,
+              max(c(random.mnd.nolag$ann.mean.g, buffer.nolag$ann.mean.g, unocc.nolag$ann.mean.g))+0.75), xlab='z(Greenness)')
+    lines(density(mnds$ann.mean.g), col=alpha(g.col, 1))
+    polygon(density(mnds$ann.mean.g), col=alpha(g.col, 1), border='black')
+    lines(density(buff$ann.mean.g), col=alpha(g.col, 0.67))
+    polygon(density(buff$ann.mean.g), col=alpha(g.col, 0.67), border='black')
+    lines(density(unoc$ann.mean.g), col=alpha(g.col, 0.33))
+    polygon(density(unoc$ann.mean.g), col=alpha(g.col, 0.33), border='black')
+    legend('topright', fill=c(g.col, alpha(g.col, 0.67), alpha(g.col, 0.33)), title='Greenness',
+           legend=c('Mound cells','Buffer cells','Unoccupied cells'), bty='n', inset=0.02)
+  ## wetness
+  plot(density(c(mnds$ann.mean.w, unoc$ann.mean.w, buff$ann.mean.w)), col='transparent', main='',
+       ylim=c(0,max(c(density(mnds$ann.mean.w)$y, density(unoc$ann.mean.w)$y, density(buff$ann.mean.w)$y))), 
+       xlim=c(min(c(random.mnd.nolag$ann.mean.w, buffer.nolag$ann.mean.w, unocc.nolag$ann.mean.w))-0.75,
+              max(c(random.mnd.nolag$ann.mean.w, buffer.nolag$ann.mean.w, unocc.nolag$ann.mean.w))+0.75), xlab='z(Wetness)')
+    lines(density(mnds$ann.mean.w), col=alpha(w.col, 1))
+    polygon(density(mnds$ann.mean.w), col=alpha(w.col, 1), border='black')
+    lines(density(buff$ann.mean.w), col=alpha(w.col, 0.67))
+    polygon(density(buff$ann.mean.w), col=alpha(w.col, 0.67), border='black')
+    lines(density(unoc$ann.mean.w), col=alpha(w.col, 0.33))
+    polygon(density(unoc$ann.mean.w), col=alpha(w.col, 0.33), border='black')
+    legend('topright', fill=c(w.col, alpha(w.col, 0.67), alpha(w.col, 0.33)), title='Wetness',
+           legend=c('Mound cells','Buffer cells','Unoccupied cells'), bty='n', inset=0.02)
+  ## NDWI
+  plot(density(c(mnds$ann.mean.n, unoc$ann.mean.n, buff$ann.mean.n)), col='transparent', main='',
+       ylim=c(0,max(c(density(mnds$ann.mean.n)$y, density(unoc$ann.mean.n)$y, density(buff$ann.mean.n)$y))), 
+       xlim=c(min(c(random.mnd.nolag$ann.mean.n, buffer.nolag$ann.mean.n, unocc.nolag$ann.mean.n))-0.75,
+              max(c(random.mnd.nolag$ann.mean.n, buffer.nolag$ann.mean.n, unocc.nolag$ann.mean.n))+0.75), xlab='z(NDWI)')
+    lines(density(mnds$ann.mean.n), col=alpha(n.col, 1))
+    polygon(density(mnds$ann.mean.n), col=alpha(n.col, 1), border='black')
+    lines(density(buff$ann.mean.n), col=alpha(n.col, 0.67))
+    polygon(density(buff$ann.mean.n), col=alpha(n.col, 0.67), border='black')
+    lines(density(unoc$ann.mean.n), col=alpha(n.col, 0.33))
+    polygon(density(unoc$ann.mean.n), col=alpha(n.col, 0.33), border='black')
+    legend('topright', fill=c(n.col, alpha(n.col, 0.67), alpha(n.col, 0.33)), title='NDWI',
+           legend=c('Mound cells','Buffer cells','Unoccupied cells'), bty='n', inset=0.02)
+}
+dev.off()
+
+# ## Boxplots of independent variable values for each dependent variable -- not as helpful as scatterplots
+# pdf('/Users/Avril/Desktop/boxplots.pdf', width=10, height=10)
+# par(mfrow=c(2,2))
+# for(y in unique(random.mnd.nolag$year)){     ## for each year
+#   sub <- random.mnd.nolag[random.mnd.nolag$year == y,]
+#   for(c in 4:5){                              ## and for each column of dependent variables
+#     boxplot(sub$weather.szn.1.g ~ sub[,c], col=g.col, pch=19, xlab=colnames(sub)[c], main=paste0(y,' - No lag'), ylab='Greenness') ## plot boxplots for each metric
+#     boxplot(sub$weather.szn.1.b ~ sub[,c], col=b.col, pch=19, xlab=colnames(sub)[c], main=paste0(y,' - No lag'), ylab='Brightness')
+#     boxplot(sub$weather.szn.1.w ~ sub[,c], col=w.col, pch=19, xlab=colnames(sub)[c], main=paste0(y,' - No lag'), ylab='Wetness')
+#     boxplot(sub$weather.szn.1.n ~ sub[,c], col=n.col, pch=19, xlab=colnames(sub)[c], main=paste0(y,' - No lag'), ylab='NDWI')
+#   }
+#   sub <- random.mnd.6molag[random.mnd.6molag$year == y,]
+#   for(c in 4:5){
+#     boxplot(sub$weather.szn.1.g ~ sub[,c], col=g.col, pch=19, xlab=colnames(sub)[c], main=paste0(y,' - 6-month lag'), ylab='Greenness')
+#     boxplot(sub$weather.szn.1.b ~ sub[,c], col=b.col, pch=19, xlab=colnames(sub)[c], main=paste0(y,' - 6-month lag'), ylab='Brightness')
+#     boxplot(sub$weather.szn.1.w ~ sub[,c], col=w.col, pch=19, xlab=colnames(sub)[c], main=paste0(y,' - 6-month lag'), ylab='Wetness')
+#     boxplot(sub$weather.szn.1.n ~ sub[,c], col=n.col, pch=19, xlab=colnames(sub)[c], main=paste0(y,' - 6-month lag'), ylab='NDWI')
+#   }
+#   sub <- random.mnd.1yrlag[random.mnd.1yrlag$year == y,]
+#   for(c in 4:5){
+#     boxplot(sub$weather.szn.1.g ~ sub[,c], col=g.col, pch=19, xlab=colnames(sub)[c], main=paste0(y,' - 1-year lag'), ylab='Greenness')
+#     boxplot(sub$weather.szn.1.b ~ sub[,c], col=b.col, pch=19, xlab=colnames(sub)[c], main=paste0(y,' - 1-year lag'), ylab='Brightness')
+#     boxplot(sub$weather.szn.1.w ~ sub[,c], col=w.col, pch=19, xlab=colnames(sub)[c], main=paste0(y,' - 1-year lag'), ylab='Wetness')
+#     boxplot(sub$weather.szn.1.n ~ sub[,c], col=n.col, pch=19, xlab=colnames(sub)[c], main=paste0(y,' - 1-year lag'), ylab='NDWI')
 #   }
 # }
-# cell.offs <- as.data.frame(OUT)
-# colnames(cell.offs) <- c('year','cell.num','num.off')
-# cell.offs <- merge(cell.offs, tc.dat, by=c('year','cell.num'))
-# OUT <- NULL
-# for(i in unique(cell.offs$year)){
-#   temp <- cell.offs[cell.offs$year == i,]
-#   for(j in unique(temp$cell.num)){
-#     sub <- temp[temp$cell.num == j,]
-#     ## save max and min TC metric values for each cell with offspring in each year
-#     save <- c(i, j, sub$num.off[1], min(sub$greenness), max(sub$greenness), 
-#               min(sub$wetness), max(sub$wetness),
-#               min(sub$brightness), max(sub$brightness))
-#     OUT <- rbind(OUT, save)
-#   }
+# dev.off()
+
+
+# ## Annual PCAs -- not super interesting
+# for(y in unique(random.mnd.nolag$year)){
+#   mnds <- random.mnd.nolag[random.mnd.nolag$year == y, c(1,8:11)]
+#   mnds$type <- 'mnds'
+#   unoc <- unocc.nolag[unocc.nolag$year == y, c(1,4:7)]
+#   unoc$type <- 'unoc'
+#   buff <- buffer.nolag[buffer.nolag$year == y, c(1, 4:7)]
+#   buff$type <- 'buff'
+#   all <- rbind(mnds, unoc, buff)
+#   ## create groups for plotting colors
+#   col.group <- c(rep('red', times=nrow(all[which(all$type == 'mnds'),])),
+#                  rep('orchid3', times=nrow(all[which(all$type == 'buff'),])),
+#                  rep('blue', times=nrow(all[which(all$type == 'unoc'),])))
+#   pca <- prcomp(all[,c(2:5)], scale=TRUE, center=TRUE)
+#   plot(pca$x[,1], pca$x[,2], pch=19, col=alpha(col.group, 0.8), xlab='PC1', ylab='PC2', main=y)
 # }
-# tc.cell.offs <- as.data.frame(OUT)
-# colnames(tc.cell.offs) <- c('year','cell.num','num.off','min.g','max.g','min.w','max.w','min.b','max.b')
-# 
-# plot(tc.cell.offs$min.g, tc.cell.offs$num.off, pch=19, col=alpha('darkgreen', 0.4))
-# plot(tc.cell.offs$max.g, tc.cell.offs$num.off, pch=19, col=alpha('darkgreen', 0.4))
-# plot(tc.cell.offs$min.w, tc.cell.offs$num.off, pch=19, col=alpha('blue', 0.4))
-# plot(tc.cell.offs$max.w, tc.cell.offs$num.off, pch=19, col=alpha('blue', 0.4))
-# plot(tc.cell.offs$min.b, tc.cell.offs$num.off, pch=19, col=alpha('sienna', 0.4))
-# plot(tc.cell.offs$max.b, tc.cell.offs$num.off, pch=19, col=alpha('sienna', 0.4))
+

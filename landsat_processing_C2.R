@@ -13,6 +13,11 @@ library(TeachingDemos)
 source('/Users/Avril/Documents/krat_remote_sensing/krat_remote_sensing_scripts/c2l2readMeta.R')
 `%notin%` <- Negate(`%in%`)
 
+g.col <- 'forestgreen'
+w.col <- 'deepskyblue2'
+b.col <- 'tan4'
+n.col <- 'chartreuse3'
+
 ##### 1. Read in mound waypoints for later extraction + manual assignments #####
 mnd.locs <- read.csv('/Users/Avril/Documents/krat_remote_sensing/intermediate_data/mound_GPS_coords_n188.csv')
 mnd.locs$ID <- 1:nrow(mnd.locs) ## add column for later matching up with TC extracted pixel values
@@ -259,18 +264,18 @@ mc.key <- read.csv(paste0('C2L2_',mc.fn,'.csv'))
 ## look for correlations among TC metrics and other indices
 ## for a single cell in a single scene
 temp <- tc.dat[which(tc.dat$cell.num == unique(tc.dat$cell.num)[1]),]
-pdf('/Users/Avril/Desktop/single_scene_index_correlations.pdf', width=15, height=15)
+# pdf('/Users/Avril/Desktop/single_scene_index_correlations.pdf', width=15, height=15)
 pairs(temp[,c(2:8)], col=alpha('dodgerblue3', 0.5))
-dev.off()
+# dev.off()
 
 ## a more comprehensive check with multiple scenes and cells, randomly sampled from all
 ## data
-size <- 10000     ## number of cells to sample
+size <- 1000     ## number of cells to sample
 samps <- sample(1:nrow(tc.dat), size, replace=FALSE)
 temp <- tc.dat[samps,]
-pdf(paste0('/Users/Avril/Desktop/',size,'_randomcells_index_correlations.pdf'), width=15, height=15)
+# pdf(paste0('/Users/Avril/Desktop/',size,'_randomcells_index_correlations.pdf'), width=15, height=15)
 pairs(temp[,c(2:8)], col=alpha('dodgerblue3', 0.2))
-dev.off()
+# dev.off()
 
 ## quantify correlations among indices
 cors <- abs(cor(temp[,c(2:8)]))
@@ -278,3 +283,117 @@ cors <- abs(cor(temp[,c(2:8)]))
 ### NDVI, SAVI, MSAVI all > 0.95 with greenness.
 ### NDWI is close (wetness vs. brightness is closer!), will need to check for 
 ### multicollinearity in all models anyway.
+tc.dat <- tc.dat[,c(1:4,8:17)]
+
+### Plot information on final set of scenes retained
+tc.dat$year <- do.call(rbind, strsplit(tc.dat$acq.date, split='-', fixed=TRUE))[,1]
+scenes.avail <- tc.dat[,c('year','doy','path')]
+scenes.avail <- scenes.avail[!duplicated(scenes.avail),]
+cloud.col <- 0.9
+
+# pdf('/Users/Avril/Desktop/C2L2_landsat5_data_across_years_manual_cloudcheck.pdf', width=20, height=7)
+par(mar=c(5.1, 5.1, 6.1, 2.1))
+plot(scenes.avail$doy, scenes.avail$year, pch=19, cex=3, xlab='Day of Year', ylab='Year',
+     col='transparent', ylim=c(1989, 2005), cex.axis=1.5, cex.lab=1.5)
+  ## add polygons for weather-based seasons
+  polygon(c(182,243,243,182), c(1985,1985,2007,2007), border=NA, col='grey85') ## July 1 (day 182) - Aug 31 (day 243)
+  polygon(c(335,365,365,335), c(1985,1985,2007,2007), border=NA, col='grey85') ## Dec 1 (day 335) - March (day 90)
+  polygon(c(0,90,90,0), c(1985,1985,2007,2007), border=NA, col='grey85') ## Dec 1 (day 335) - March (day 90)
+  points(scenes.avail[scenes.avail$path==34, 'doy'], scenes.avail[scenes.avail$path==34, 'year'], pch=21, cex=3, xlab='Day of Year', ylab='Year',
+         col='black', bg=alpha('dodgerblue2', alpha=cloud.col), ylim=c(1989, 2007), cex.axis=1.5, cex.lab=1.5)
+  points(scenes.avail[scenes.avail$path==35, 'doy'], scenes.avail[scenes.avail$path==35, 'year'], pch=22, cex=3, xlab='Day of Year', ylab='Year',
+         col='black', bg=alpha('dodgerblue4', alpha=cloud.col), ylim=c(1989, 2007), cex.axis=1.5, cex.lab=1.5)
+  # lines(x=c(91,91), y=c(1980, 2006), lty=2, lwd=2) ## April 1
+  # lines(x=c(305,305), y=c(1980, 2006), lty=2, lwd=2) ## November 1
+  # text(c(91, 305), c(2006.5, 2006.5), labels=c('Apr 1', 'Nov 1'), cex=1.5)
+  legend((365/2), 2009.5, xpd=TRUE, pch=c(21,22), legend=c('34', '35'), title='Path Number', horiz=TRUE, xjust=0.5,
+         cex=1.5, col='black', pt.cex=3, text.width=12, x.intersp=1.8, pt.bg=c(alpha('dodgerblue3', alpha=cloud.col), alpha('dodgerblue4', alpha=cloud.col)))
+# dev.off()
+
+##### Look into variation in index values within and across years
+## scale and center first
+tc.dat$z.g <- scale(tc.dat$greenness, scale=TRUE, center=TRUE)
+tc.dat$z.b <- scale(tc.dat$brightness, scale=TRUE, center=TRUE)
+tc.dat$z.w <- scale(tc.dat$wetness, scale=TRUE, center=TRUE)
+tc.dat$z.n <- scale(tc.dat$NDWI, scale=TRUE, center=TRUE)
+
+OUT <- NULL
+for(y in unique(tc.dat$year)){
+  sub <- tc.dat[tc.dat$year == y,]
+  sub <- sub[order(sub$doy),]
+  for(s in unique(sub$scene.id)){
+    temp <- sub[sub$scene.id == s,]
+    g <- mean(temp$greenness)
+    b <- mean(temp$brightness)
+    w <- mean(temp$wetness)
+    n <- mean(temp$NDWI)
+    z.g <- mean(temp$z.g)
+    z.b <- mean(temp$z.b)
+    z.w <- mean(temp$z.w)
+    z.n <- mean(temp$z.n)
+    p <- as.numeric(temp$path[1])
+    d <- as.numeric(temp$doy[1])
+    save <- c(y,d,p,g,b,w,n,z.g,z.b,z.w,z.n)
+    save <- as.numeric(save)
+    OUT <- rbind(OUT, save)
+  }
+}
+res <- as.data.frame(OUT)
+colnames(res) <- c('year','doy','path','greenness','brightness','wetness','ndwi','z.g','z.b','z.w','z.n')
+res[res$path==34, 'pch'] <- 17
+res[res$path==35, 'pch'] <- 19
+
+pdf('/Users/Avril/Desktop/tc_and_ndwi_variation_scene_means.pdf', width=7, height=12)
+par(mfrow=c(4,1))
+for(y in unique(res$year)){
+  sub <- res[res$year == y,]
+  sub <- sub[order(sub$doy),]
+  plot(sub$doy, sub$greenness, xlim=c(0,365), pch=sub$pch, xlab='Day of year', ylab='Greenness', col='transparent', ylim=c(min(res$greenness), max(res$greenness)), main=y)
+    lines(sub$doy, sub$greenness, col='grey')
+    points(sub$doy, sub$greenness, pch=sub$pch, col=g.col)
+    legend('topright', pch=c(17,19), legend=c('34','35'), title='Path', inset=c(0.02), bty='n')
+  plot(sub$doy, sub$brightness, xlim=c(0,365), pch=sub$pch, xlab='Day of year', ylab='Brightness', col='transparent', ylim=c(min(res$brightness), max(res$brightness)))
+    lines(sub$doy, sub$brightness, col='grey')
+    points(sub$doy, sub$brightness, pch=sub$pch, col=b.col)
+  plot(sub$doy, sub$wetness, xlim=c(0,365), pch=sub$pch, xlab='Day of year', ylab='Wetness', col='transparent', ylim=c(min(res$wetness), max(res$wetness)))
+    lines(sub$doy, sub$wetness, col='grey')
+    points(sub$doy, sub$wetness, pch=sub$pch, col=w.col)
+  plot(sub$doy, sub$ndwi, xlim=c(0,365), pch=sub$pch, xlab='Day of year', ylab='NDWI', col='transparent', ylim=c(min(res$ndwi), max(res$ndwi)))
+    lines(sub$doy, sub$ndwi, col='grey')
+    points(sub$doy, sub$ndwi, pch=sub$pch, col=n.col)
+}
+dev.off()
+
+pdf('/Users/Avril/Desktop/tc_and_ndwi_variation_scene_means_scaledcentered.pdf', width=7, height=12)
+par(mfrow=c(4,1))
+for(y in unique(res$year)){
+  sub <- res[res$year == y,]
+  sub <- sub[order(sub$doy),]
+  plot(sub$doy, sub$z.g, xlim=c(0,365), pch=sub$pch, xlab='Day of year', ylab='Greenness', col='transparent', ylim=c(min(res$z.g), max(res$z.g)), main=y)
+    abline(h=0, lty=2, col='grey')
+    lines(sub$doy, sub$z.g, col='grey60')
+    points(sub$doy, sub$z.g, pch=sub$pch, col=g.col)
+    legend('topright', pch=c(17,19), legend=c('34','35'), title='Path', inset=c(0.02), bty='n')
+    abline(h=0, lty=2, col='grey')
+  plot(sub$doy, sub$z.b, xlim=c(0,365), pch=sub$pch, xlab='Day of year', ylab='Brightness', col='transparent', ylim=c(min(res$z.b), max(res$z.b)))
+    abline(h=0, lty=2, col='grey')  
+    lines(sub$doy, sub$z.b, col='grey60')
+    points(sub$doy, sub$z.b, pch=sub$pch, col=b.col)
+  plot(sub$doy, sub$z.w, xlim=c(0,365), pch=sub$pch, xlab='Day of year', ylab='Wetness', col='transparent', ylim=c(min(res$z.w), max(res$z.w)))
+    abline(h=0, lty=2, col='grey') 
+    lines(sub$doy, sub$z.w, col='grey60')
+    points(sub$doy, sub$z.w, pch=sub$pch, col=w.col)
+  plot(sub$doy, sub$z.n, xlim=c(0,365), pch=sub$pch, xlab='Day of year', ylab='NDWI', col='transparent', ylim=c(min(res$z.n), max(res$z.n)))
+    abline(h=0, lty=2, col='grey') 
+    lines(sub$doy, sub$z.n, col='grey60')
+    points(sub$doy, sub$z.n, pch=sub$pch, col=n.col)
+}
+dev.off()
+
+
+
+
+
+
+
+
