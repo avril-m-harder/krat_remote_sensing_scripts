@@ -155,23 +155,28 @@ ggplot(data = states) +
         axis.title=element_blank(),
         panel.border=element_rect(fill=NA)) +
   ## state outlines
-  geom_sf(fill=grey, col='grey80', lwd=0.25) + ## other greens: springgreen4  #B5D383
+  geom_sf(fill=grey, col='grey80', lwd=0.25) +  ## other greens: springgreen4  #B5D383
   ## US-Mexico border
   geom_sf(data = border, col='grey30', lwd=0.5) +
   ## add Path 035 polygon
-  geom_polygon(data=path35, fill=alpha('blue', 0.3), x=path35$x, y=path35$y) +
+  geom_polygon(data=path35, fill=alpha('blue', 0.3), x=path35$x, y=path35$y,
+               linetype = 2, linewidth = 0.5, colour = 'blue') + 
   ## add Path 034 polygon
-  geom_polygon(data=path34, fill=alpha('red', 0.3), x=path34$x, y=path34$y) +
+  geom_polygon(data=path34, fill=alpha('red', 0), x=path34$x, y=path34$y,
+               linetype = 2, linewidth = 0.5, colour = 'red') +
   ## add study site polygon
   # geom_polygon(data=site, fill=alpha('black', 1), x=site$x, y=site$y) +
   ## add site coords
-  geom_point(y=31.6166667, x=-109.25, pch=8) +
+  geom_point(y=31.6166667, x=-109.25, pch=19) +
   ## add scalebar
-  ggsn::scalebar(x.min=-115, x.max=-98, y.min=21, y.max=38,
-                 dist=200, dist_unit='km', st.bottom=TRUE, st.color='black',
-                 transform=TRUE, location='bottomleft', st.size=3, st.dist=.03) +
-  coord_sf(xlim = c(-112, -106), ylim = c(30.5, 33), expand = FALSE)
+  ggsn::scalebar(x.min=-111.5, x.max=-106.5, y.min=30.25, y.max=33.5,
+                 dist=50, dist_unit='km', st.bottom=TRUE, st.color='black',
+                 transform=TRUE, location='bottomright', st.size=3, st.dist=.03) +
+  coord_sf(xlim = c(-112, -106), ylim = c(30, 33.5), expand = FALSE)
 dev.off()
+
+##### Zoomed-in map with topography? #####
+
 
 ###### Plot ranges for D. spectabilis and D. ordii #####
 ## read in range map shapefile for D. ordii (downloaded from IUCN on 8/16/21)

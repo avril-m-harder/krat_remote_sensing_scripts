@@ -40,6 +40,9 @@ write.table(scenes.avail[which(scenes.avail$Land.Cloud.Cover <= 60),2], quote=FA
 ## write list of scenes with cloud cover <20%
 write.table(scenes.avail[which(scenes.avail$Land.Cloud.Cover <= 20),2], quote=FALSE, ## 460 scenes
             '/Users/Avril/Desktop/C2L2_low_cloud_scenes.txt', sep='\t', row.names=FALSE, col.names=FALSE)
+## write list of scenes with cloud cover >20% in Path 35
+write.table(scenes.avail[which(scenes.avail$Land.Cloud.Cover > 20 & scenes.avail$WRS.Path == 35),2], quote=FALSE, ## 101 scenes
+            '/Users/Avril/Desktop/C2L2_high_cloud_scenes.txt', sep='\t', row.names=FALSE, col.names=FALSE)
 ## write list of cloud-free scenes
 write.table(scenes.avail[which(scenes.avail$Land.Cloud.Cover == 0),2], quote=FALSE, ## 233 scenes
             '/Users/Avril/Desktop/C2L2_cloud_free_scenes.txt', sep='\t', row.names=FALSE, col.names=FALSE)

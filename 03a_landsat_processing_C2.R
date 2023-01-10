@@ -73,20 +73,20 @@ rm(ext, all_landsat_bands, crit_bands,
 # ## loop over downloads in scratch space (n=647)
 # setwd('/Volumes/avril_data/krat_remote_sensing/C2L2_raw_landsat45tm_scene_downloads/')
 # dirs <- list.files()
-# 
+#
 # # set extent for all analyses
 # lo.x <- 663500
 # hi.x <- 665600
 # lo.y <- 3497000
 # hi.y <- 3499750
 # ext <- extent(lo.x, hi.x, lo.y, hi.y)
-# 
+#
 # for(i in 1:length(dirs)){
 #   setwd(paste0('/Volumes/avril_data/krat_remote_sensing/C2L2_raw_landsat45tm_scene_downloads/',dirs[i],'/'))
 #   ## read in data
 #   all_landsat_bands <- list.files(pattern = glob2rx("*TIF$"), full.names = TRUE) ## get all bands, including QA and CLOUD_QA
 #   # ls5.stack <- stack(all_landsat_bands)
-# 
+#
 #   if(length(all_landsat_bands) != 0){ ## if files haven't been renamed yet, rename them
 #     ## get new filenames and rename TIF files
 #     new.names <- gsub('CLOUD_QA', 'CLOUD-QA', all_landsat_bands)
@@ -99,21 +99,21 @@ rm(ext, all_landsat_bands, crit_bands,
 #     new.names <- list.files(pattern = glob2rx("*_sr$"), full.names = TRUE)
 #     ls5.stack <- stack(new.names)
 #   }
-# 
+#
 #   ## read in metadata
 #   md.file <- list.files(pattern=glob2rx("*MTL.txt"), full.names=TRUE)
 #   m.data <- c2l2readMeta(md.file) ## uses an edited version of readMeta to read in metadata from C2L2-formatted *_MTL.txt files
-# 
+#
 #   ## crop raster data by extent to reduce processing times and write to file
 #   ls5.stack <- crop(ls5.stack, ext)
-# 
+#
 #   writeRaster(ls5.stack, filename=paste0('/Volumes/avril_data/krat_remote_sensing/C2L2_cropped_landsat45tm_scenes/',dirs[i],'_CROPPED.grd'), progress='text', overwrite=TRUE)
 #   # ls5.stack <- brick(paste0('/Volumes/avril_data/krat_remote_sensing/C2L2_croppped_landsat45tm_scenes/',i,'_CROPPED.grd'))
-# 
+#
 #   print(i)
 # }
-# 
-# 
+#
+#
 # ## for scenes of interest, print cropped image for manual cloud-cover check and write information
 # ## for taking notes on image quality in .csv file
 # setwd('/Users/Avril/Documents/krat_remote_sensing/')
@@ -122,9 +122,36 @@ rm(ext, all_landsat_bands, crit_bands,
 # files$V1 <- paste0(files$V1,'_CROPPED.grd')
 # files <- as.vector(files$V1)
 # scenes.avail <- read.csv('C2L2_landsat_5_data_overviews/landsat_tm_c2_l2_all_scenes_avail.csv') ## read in info to get cloud cover data for whole scenes
-
+#
 # setwd('/Users/Avril/Documents/krat_remote_sensing/C2L2_cropped_landsat45tm_scenes/')
 # pdf('../C2L2_landsat_5_data_overviews/C2L2_low_cloud_scenes_raw_images.pdf', width=8, height=8)
+# par(mar=c(3.1,2.1,2.1,1.1), mgp=c(1.5,.75,0))
+# OUT <- NULL
+# for(i in 1:length(files)){
+#   print(i)
+#   ls5.stack <- brick(files[i])
+#   plot.new()
+#   try(raster::plotRGB(ls5.stack, r=3, g=2, b=1, scale=ls5.stack@data@max[c(3,2,1)]), silent=TRUE)
+#   # try(raster::plotRGB(ls5.stack, r=3, g=2, b=1), silent=FALSE)
+#   graphics::legend('topleft', paste0(i,' - ',files[i]), bty='n', text.col='darkgreen')
+#   save <- c(i, files[i], scenes.avail[which(scenes.avail$Landsat.Product.Identifier.L2==raw.files[i]), 'Land.Cloud.Cover'])
+#   OUT <- rbind(OUT, save)
+# }
+# dev.off()
+# colnames(OUT) <- c('index','filename','cover')
+# write.csv(OUT, '../C2L2_landsat_5_data_overviews/C2L2_low_cloud_scenes_cloud_cover_notes.csv',
+#           row.names=FALSE)
+#
+# ## because limiting to just Path 35 (not 34), reviewing additional scenes to try to increase sample size (cover > 20%) (Jan. 27, 2022)
+# setwd('/Users/Avril/Documents/krat_remote_sensing/')
+# files <- read.table('/Users/Avril/Documents/krat_remote_sensing/C2L2_landsat_5_data_overviews/C2L2_high_cloud_scenes.txt') ## scenes with > 20% cloud cover (n=101)
+# raw.files <- files$V1
+# files$V1 <- paste0(files$V1,'_CROPPED.grd')
+# files <- as.vector(files$V1)
+# scenes.avail <- read.csv('C2L2_landsat_5_data_overviews/landsat_tm_c2_l2_all_scenes_avail.csv') ## read in info to get cloud cover data for whole scenes
+#
+# setwd('/Users/Avril/Documents/krat_remote_sensing/C2L2_cropped_landsat45tm_scenes/')
+# pdf('../C2L2_landsat_5_data_overviews/C2L2_high_cloud_scenes.pdf', width=8, height=8)
 # par(mar=c(3.1,2.1,2.1,1.1), mgp=c(1.5,.75,0))
 # OUT <- NULL
 # for(i in 1:length(files)){
@@ -139,59 +166,86 @@ rm(ext, all_landsat_bands, crit_bands,
 # }
 # dev.off()
 # colnames(OUT) <- c('index','filename','cover')
-# write.csv(OUT, '../C2L2_landsat_5_data_overviews/C2L2_low_cloud_scenes_cloud_cover_notes.csv',
+# write.csv(OUT, '../C2L2_landsat_5_data_overviews/C2L2_high_cloud_scenes_cloud_cover_notes.csv',
 #           row.names=FALSE)
 
-# ##### 3. Loop over cropped scenes, process, and write TC output #####
-# ### ** Requires external drive for reading in metadata files ** ###
-# ## set file names for run
-# tc.fn <- 'tc_manual_cloudcheck' ## for TC data -- tc_manual_cloudcheck
-# mc.fn <- 'mnd_manual_cloudcheck' ## for mound/cell ID key -- mnd_manual_cloudcheck
-# 
-# setwd('/Users/Avril/Documents/krat_remote_sensing/C2L2_cropped_landsat45tm_scenes/')
-# 
-# ## read in results of manual cloud checking to get list of scenes to process
-# res <- read.csv('/Users/Avril/Documents/krat_remote_sensing/C2L2_landsat_5_data_overviews/C2L2_low_cloud_scenes_cloud_cover_notes.csv')
-# table(res$usable) ## 365 / 460 scenes checked are usable (i.e., no clouds over extent or processing errors)
-# res <- res[which(res$usable == 1),]
-# files <- as.vector(res$filename)
-# 
+##### 3. Loop over cropped scenes, process, and write TC output #####
+### ** Requires external drive for reading in metadata files ** ###
+## set file names for run
+tc.fn <- 'tc_manual_cloudcheck' ## for TC data -- tc_manual_cloudcheck
+mc.fn <- 'mnd_manual_cloudcheck' ## for mound/cell ID key -- mnd_manual_cloudcheck
+
+setwd('/Users/Avril/Documents/krat_remote_sensing/C2L2_cropped_landsat45tm_scenes/')
+
+## read in results of manual cloud checking to get list of scenes to process
+## read in results of checking scenes with <= 20% cloud cover
+res <- read.csv('/Users/Avril/Documents/krat_remote_sensing/C2L2_landsat_5_data_overviews/C2L2_low_cloud_scenes_cloud_cover_notes.csv')
+table(res$usable) ## 365 / 460 scenes checked are usable (i.e., no clouds over extent or processing errors)
+res <- res[which(res$usable == 1),]
+res$path <- do.call(rbind, strsplit(res$filename, split='_'))[,3]
+res <- res[res$path == '035038',] ## only keep scenes from Path 35
+files1 <- as.vector(res$filename)
+## read in results of checking scenes with > 20% cloud cover
+res <- read.csv('/Users/Avril/Documents/krat_remote_sensing/C2L2_landsat_5_data_overviews/C2L2_high_cloud_scenes_cloud_cover_notes.csv')
+table(res$usable) ## 20 / 62 scenes checked are usable (i.e., no clouds over extent or processing errors)
+res <- res[which(res$usable == 1),]
+files2 <- as.vector(res$filename)
+## combine lists of files
+files <- c(files1, files2)
+
 # pdf(file=paste0('/Users/Avril/Desktop/',tc.fn,'.pdf'), width=8, height=8)
 # par(mar=c(3.1,2.1,2.1,1.1), mgp=c(1.5,.75,0))
-# 
+
+# ## temp, 2/3/22, just to write some series images
+# years <- do.call(rbind, strsplit(files, split='_', fixed=TRUE))[,4]
+# years <- substr(years, 1,4)
+# files <- files[which(years == 1998)]
+
 # OUT <- NULL
-# 
 # for(i in 1:length(files)){
 #   ls5.stack <- brick(files[i])
-#   plot.new()
-#   try(raster::plotRGB(ls5.stack, r=3, g=2, b=1, scale=ls5.stack@data@max[c(3,2,1)]), silent=TRUE)
-#   # try(raster::plotRGB(ls5.stack, r=3, g=2, b=1), silent=FALSE)
-#     graphics::legend('topleft', paste0(i,' - ',files[i]), bty='n', text.col='darkgreen')
+#   # plot.new()
+#   # try(raster::plotRGB(ls5.stack, r=3, g=2, b=1, scale=ls5.stack@data@max[c(3,2,1)]), silent=TRUE)
+#   # # try(raster::plotRGB(ls5.stack, r=3, g=2, b=1), silent=FALSE)
+#   #   graphics::legend('topleft', paste0(i,' - ',files[i]), bty='n', text.col='darkgreen')
 # 
 #   ## masking clouds using CLOUD_QA or QA band isn't very accurate;
 #   ## just manually review plots to check for cloud cover
 #   scene <- gsub('_CROPPED.grd', '', files[i])
 #   ## read in metadata for original scene
 #   d <- gsub('_CROPPED.grd', '', files[i])
-#   setwd(paste0('/Volumes/avril_data/krat_remote_sensing/C2L2_raw_landsat45tm_scene_downloads/',d,'/'))
+#   setwd(paste0('/Volumes/avril_data/nsf_postdoc_data/krat_remote_sensing/C2L2_raw_landsat45tm_scene_downloads/',d,'/'))
 #   md.file <- list.files(pattern=glob2rx('*MTL.txt'), full.names=TRUE)
 #   m.data <- c2l2readMeta(md.file)
 #   setwd('/Users/Avril/Documents/krat_remote_sensing/C2L2_cropped_landsat45tm_scenes/')
 # 
-#   ## no corrections needed because C2L2 data are already in surface reflectance --
-#   ## can directly apply TC transformation
+#   ## apply scaling factors appropriate for C2L2 data
+#   ## surface reflectance data
+#   for(l in c(1:5,7)){
+#     vals <- getValues(ls5.stack[[l]])
+#     vals <- 0.0000275 * vals - 0.2 ## convert DN to surface reflectance
+#     ls5.stack[[l]] <- setValues(ls5.stack[[l]], vals)
+#   }
+#   ## surface temperature data
+#   vals <- getValues(ls5.stack[[6]])
+#   vals <- 0.00341802 * vals + 149.0 ## convert DN to degrees Kelvin
+#   ls5.stack[[6]] <- vals
 # 
 #   ## manually select the Landsat5TM bands you need for Tasseled Cap (1,2,3,4,5,7)
 #   tc.cor.stack <- raster::subset(ls5.stack, subset=c('B1_sr','B2_sr','B3_sr','B4_sr','B5_sr','B7_sr'))
+# 
 #   ## apply the Tasseled Cap transformation
 #   ls5.tc.cor <- tasseledCap(tc.cor.stack, sat='Landsat5TM')
 #   # par(mar=c(5.1,4.1,4.1,2.1))
-#   plot(ls5.tc.cor$greenness, xlab='UTM westing coordinate (m)', ylab='UTM northing coordinate (m)', bty='n', main=paste0(files[i],'\ngreenness'))
-#     points(all.locs, pch=19, cex=0.2)
-#   plot(ls5.tc.cor$brightness, xlab='UTM westing coordinate (m)', ylab='UTM northing coordinate (m)', bty='n', main=paste0(files[i],'\nbrightness'))
-#     points(all.locs, pch=19, cex=0.2)
-#   plot(ls5.tc.cor$wetness, xlab='UTM westing coordinate (m)', ylab='UTM northing coordinate (m)', bty='n', main=paste0(files[i],'\nwetness'))
-#     points(all.locs, pch=19, cex=0.2)
+#   # plot(ls5.tc.cor$greenness, xlab='UTM westing coordinate (m)', ylab='UTM northing coordinate (m)', bty='n', main=paste0(files[i],'\ngreenness'),
+#   #      col=viridis(100),zlim=c(-0.1, 0.2)) ## turn this on when plotting and need same scale across images
+#   #   points(all.locs, pch=19, cex=0.2, col='white')
+#   # plot(ls5.tc.cor$brightness, xlab='UTM westing coordinate (m)', ylab='UTM northing coordinate (m)', bty='n', main=paste0(files[i],'\nbrightness'),
+#   #      col=viridis(100),zlim=c(0.1, 0.55)) ## turn this on when plotting and need same scale across images
+#   #   points(all.locs, pch=19, cex=0.2, col='white')
+#   # plot(ls5.tc.cor$wetness, xlab='UTM westing coordinate (m)', ylab='UTM northing coordinate (m)', bty='n', main=paste0(files[i],'\nwetness'),
+#   #        col=viridis(100),zlim=c(0.05, 0.25)) ## turn this on when plotting and need same scale across images
+#   #   points(all.locs, pch=19, cex=0.2, col='white')
 #   
 #   ## keep TC values for all cells in case you wanna use lag years (and there would be different data availability
 #   ## based on buffers in that case) -- buffer code available in archived version
@@ -199,14 +253,13 @@ rm(ext, all_landsat_bands, crit_bands,
 #   g.ness <- cbind(c(1:nc), as.data.frame(ls5.tc.cor$greenness))
 #   w.ness <- cbind(c(1:nc), as.data.frame(ls5.tc.cor$wetness))
 #   b.ness <- cbind(c(1:nc), as.data.frame(ls5.tc.cor$brightness))
-# 
-#   ## calculate other spectral indices
-#   oth.ind <- spectralIndices(ls5.stack, blue='B1_sr', green='B2_sr', red='B3_sr', nir='B4_sr', indices=c('NDVI', 'SAVI', 'MSAVI', 'NDWI'))
-#   ndvi <- cbind(c(1:nc), as.data.frame(oth.ind$NDVI))
-#   savi <- cbind(c(1:nc), as.data.frame(oth.ind$SAVI))
-#   msavi <- cbind(c(1:nc), as.data.frame(oth.ind$MSAVI))
-#   ndwi <- cbind(c(1:nc), as.data.frame(oth.ind$NDWI))
-# 
+#   ## keep surface temperature data, too
+#   temp.k <- cbind(c(1:nc), as.data.frame(ls5.stack$B6_sr))
+#   colnames(temp.k)[2] <- 'temp.k'
+#   
+#   ## just calculate all the indices supported by this function
+#   oth.ind <- spectralIndices(ls5.stack, blue='B1_sr', green='B2_sr', red='B3_sr', nir='B4_sr', swir2='B5_sr', swir3='B7_sr', tir2='B6_sr')
+#   
 #   ## define data to be saved and format for writing output
 #   scene.id <- m.data$SCENE_ID
 #   prod.id <- gsub('_CROPPED.grd', '', files[i])
@@ -216,10 +269,11 @@ rm(ext, all_landsat_bands, crit_bands,
 #   doy <- as.numeric(strftime(acq.date, format='%j'))
 #   all.tc <- merge(x=g.ness, y=w.ness, by=c('c(1:nc)'))
 #   all.tc <- merge(x=all.tc, y=b.ness, by=c('c(1:nc)'))
-#   all.tc <- merge(x=all.tc, y=ndvi, by=c('c(1:nc)'))
-#   all.tc <- merge(x=all.tc, y=savi, by=c('c(1:nc)'))
-#   all.tc <- merge(x=all.tc, y=msavi, by=c('c(1:nc)'))
-#   all.tc <- merge(x=all.tc, y=ndwi, by=c('c(1:nc)'))
+#   all.tc <- merge(x=all.tc, y=temp.k, by=c('c(1:nc)'))
+#   for(l in 1:dim(oth.ind)[3]){
+#     temp <- cbind(c(1:nc), as.data.frame(oth.ind[[l]]))
+#     all.tc <- merge(x=all.tc, y=temp, by=c('c(1:nc)'))
+#   }
 #   all.tc$acq.date <- acq.date
 #   all.tc$doy <- doy
 #   all.tc$scene.id <- scene.id
@@ -229,11 +283,11 @@ rm(ext, all_landsat_bands, crit_bands,
 #   all.tc$nrows <- ls5.tc.cor$brightness@nrows
 #   all.tc$ncols <- ls5.tc.cor$brightness@ncols
 #   colnames(all.tc)[1] <- 'cell.num'
-# 
+#   
 #   ## -- write to a file continuously to free up memory
 #   write.table(all.tc, file=paste0('../C2L2_tc_output_tables/C2L2_',tc.fn,'.csv'), quote=FALSE, append=TRUE,
 #               row.names=FALSE, sep=',', col.names=!file.exists(paste0('../C2L2_tc_output_tables/C2L2_',tc.fn,'.csv')))
-# 
+#   
 #   ## get cell number for each mound and save scene information
 #   mnd.cell.dat <- cbind(all.cells, (cellFromXY(ls5.tc.cor, all.locs)))
 #   colnames(mnd.cell.dat)[3] <- 'cell.num'
@@ -243,14 +297,14 @@ rm(ext, all_landsat_bands, crit_bands,
 #   mnd.cell.dat$prod.id <- prod.id
 #   mnd.cell.dat$path <- path
 #   mnd.cell.dat$row <- row
-# 
+#   
 #   ## -- write to a file continuously to free up memory
 #   write.table(mnd.cell.dat, paste0('../C2L2_tc_output_tables/C2L2_',mc.fn,'.csv'), quote=FALSE, append=TRUE,
 #               row.names=FALSE, sep=',', col.names=!file.exists(paste0('../C2L2_tc_output_tables/C2L2_',mc.fn,'.csv')))
-# 
+#   
 #   print(i/length(files))
 # }
-# dev.off()
+# # dev.off()
 
 ##### 4. Do some basic data viz and correlation checks for current run to check for issues #####
 setwd('/Users/Avril/Documents/krat_remote_sensing/C2L2_tc_output_tables/')
@@ -265,7 +319,7 @@ mc.key <- read.csv(paste0('C2L2_',mc.fn,'.csv'))
 ## for a single cell in a single scene
 temp <- tc.dat[which(tc.dat$cell.num == unique(tc.dat$cell.num)[1]),]
 # pdf('/Users/Avril/Desktop/single_scene_index_correlations.pdf', width=15, height=15)
-pairs(temp[,c(2:8)], col=alpha('dodgerblue3', 0.5))
+pairs(temp[,c(2:27)], col=alpha('dodgerblue3', 0.5))
 # dev.off()
 
 ## a more comprehensive check with multiple scenes and cells, randomly sampled from all
@@ -274,16 +328,11 @@ size <- 1000     ## number of cells to sample
 samps <- sample(1:nrow(tc.dat), size, replace=FALSE)
 temp <- tc.dat[samps,]
 # pdf(paste0('/Users/Avril/Desktop/',size,'_randomcells_index_correlations.pdf'), width=15, height=15)
-pairs(temp[,c(2:8)], col=alpha('dodgerblue3', 0.2))
+pairs(temp[,c(2:22)], col=alpha('dodgerblue3', 0.2))
 # dev.off()
 
 ## quantify correlations among indices
-cors <- abs(cor(temp[,c(2:8)]))
-
-### NDVI, SAVI, MSAVI all > 0.95 with greenness.
-### NDWI is close (wetness vs. brightness is closer!), will need to check for 
-### multicollinearity in all models anyway.
-tc.dat <- tc.dat[,c(1:4,8:17)]
+cors <- abs(cor(temp[,c(2:22)]))
 
 ### Plot information on final set of scenes retained
 tc.dat$year <- do.call(rbind, strsplit(tc.dat$acq.date, split='-', fixed=TRUE))[,1]
@@ -291,7 +340,7 @@ scenes.avail <- tc.dat[,c('year','doy','path')]
 scenes.avail <- scenes.avail[!duplicated(scenes.avail),]
 cloud.col <- 0.9
 
-# pdf('/Users/Avril/Desktop/C2L2_landsat5_data_across_years_manual_cloudcheck.pdf', width=20, height=7)
+pdf('/Users/Avril/Desktop/C2L2_landsat5_data_across_years_manual_cloudcheck.pdf', width=20, height=7)
 par(mar=c(5.1, 5.1, 6.1, 2.1))
 plot(scenes.avail$doy, scenes.avail$year, pch=19, cex=3, xlab='Day of Year', ylab='Year',
      col='transparent', ylim=c(1989, 2005), cex.axis=1.5, cex.lab=1.5)
@@ -308,92 +357,4 @@ plot(scenes.avail$doy, scenes.avail$year, pch=19, cex=3, xlab='Day of Year', yla
   # text(c(91, 305), c(2006.5, 2006.5), labels=c('Apr 1', 'Nov 1'), cex=1.5)
   legend((365/2), 2009.5, xpd=TRUE, pch=c(21,22), legend=c('34', '35'), title='Path Number', horiz=TRUE, xjust=0.5,
          cex=1.5, col='black', pt.cex=3, text.width=12, x.intersp=1.8, pt.bg=c(alpha('dodgerblue3', alpha=cloud.col), alpha('dodgerblue4', alpha=cloud.col)))
-# dev.off()
-
-##### Look into variation in index values within and across years
-## scale and center first
-tc.dat$z.g <- scale(tc.dat$greenness, scale=TRUE, center=TRUE)
-tc.dat$z.b <- scale(tc.dat$brightness, scale=TRUE, center=TRUE)
-tc.dat$z.w <- scale(tc.dat$wetness, scale=TRUE, center=TRUE)
-tc.dat$z.n <- scale(tc.dat$NDWI, scale=TRUE, center=TRUE)
-
-OUT <- NULL
-for(y in unique(tc.dat$year)){
-  sub <- tc.dat[tc.dat$year == y,]
-  sub <- sub[order(sub$doy),]
-  for(s in unique(sub$scene.id)){
-    temp <- sub[sub$scene.id == s,]
-    g <- mean(temp$greenness)
-    b <- mean(temp$brightness)
-    w <- mean(temp$wetness)
-    n <- mean(temp$NDWI)
-    z.g <- mean(temp$z.g)
-    z.b <- mean(temp$z.b)
-    z.w <- mean(temp$z.w)
-    z.n <- mean(temp$z.n)
-    p <- as.numeric(temp$path[1])
-    d <- as.numeric(temp$doy[1])
-    save <- c(y,d,p,g,b,w,n,z.g,z.b,z.w,z.n)
-    save <- as.numeric(save)
-    OUT <- rbind(OUT, save)
-  }
-}
-res <- as.data.frame(OUT)
-colnames(res) <- c('year','doy','path','greenness','brightness','wetness','ndwi','z.g','z.b','z.w','z.n')
-res[res$path==34, 'pch'] <- 17
-res[res$path==35, 'pch'] <- 19
-
-pdf('/Users/Avril/Desktop/tc_and_ndwi_variation_scene_means.pdf', width=7, height=12)
-par(mfrow=c(4,1))
-for(y in unique(res$year)){
-  sub <- res[res$year == y,]
-  sub <- sub[order(sub$doy),]
-  plot(sub$doy, sub$greenness, xlim=c(0,365), pch=sub$pch, xlab='Day of year', ylab='Greenness', col='transparent', ylim=c(min(res$greenness), max(res$greenness)), main=y)
-    lines(sub$doy, sub$greenness, col='grey')
-    points(sub$doy, sub$greenness, pch=sub$pch, col=g.col)
-    legend('topright', pch=c(17,19), legend=c('34','35'), title='Path', inset=c(0.02), bty='n')
-  plot(sub$doy, sub$brightness, xlim=c(0,365), pch=sub$pch, xlab='Day of year', ylab='Brightness', col='transparent', ylim=c(min(res$brightness), max(res$brightness)))
-    lines(sub$doy, sub$brightness, col='grey')
-    points(sub$doy, sub$brightness, pch=sub$pch, col=b.col)
-  plot(sub$doy, sub$wetness, xlim=c(0,365), pch=sub$pch, xlab='Day of year', ylab='Wetness', col='transparent', ylim=c(min(res$wetness), max(res$wetness)))
-    lines(sub$doy, sub$wetness, col='grey')
-    points(sub$doy, sub$wetness, pch=sub$pch, col=w.col)
-  plot(sub$doy, sub$ndwi, xlim=c(0,365), pch=sub$pch, xlab='Day of year', ylab='NDWI', col='transparent', ylim=c(min(res$ndwi), max(res$ndwi)))
-    lines(sub$doy, sub$ndwi, col='grey')
-    points(sub$doy, sub$ndwi, pch=sub$pch, col=n.col)
-}
 dev.off()
-
-pdf('/Users/Avril/Desktop/tc_and_ndwi_variation_scene_means_scaledcentered.pdf', width=7, height=12)
-par(mfrow=c(4,1))
-for(y in unique(res$year)){
-  sub <- res[res$year == y,]
-  sub <- sub[order(sub$doy),]
-  plot(sub$doy, sub$z.g, xlim=c(0,365), pch=sub$pch, xlab='Day of year', ylab='Greenness', col='transparent', ylim=c(min(res$z.g), max(res$z.g)), main=y)
-    abline(h=0, lty=2, col='grey')
-    lines(sub$doy, sub$z.g, col='grey60')
-    points(sub$doy, sub$z.g, pch=sub$pch, col=g.col)
-    legend('topright', pch=c(17,19), legend=c('34','35'), title='Path', inset=c(0.02), bty='n')
-    abline(h=0, lty=2, col='grey')
-  plot(sub$doy, sub$z.b, xlim=c(0,365), pch=sub$pch, xlab='Day of year', ylab='Brightness', col='transparent', ylim=c(min(res$z.b), max(res$z.b)))
-    abline(h=0, lty=2, col='grey')  
-    lines(sub$doy, sub$z.b, col='grey60')
-    points(sub$doy, sub$z.b, pch=sub$pch, col=b.col)
-  plot(sub$doy, sub$z.w, xlim=c(0,365), pch=sub$pch, xlab='Day of year', ylab='Wetness', col='transparent', ylim=c(min(res$z.w), max(res$z.w)))
-    abline(h=0, lty=2, col='grey') 
-    lines(sub$doy, sub$z.w, col='grey60')
-    points(sub$doy, sub$z.w, pch=sub$pch, col=w.col)
-  plot(sub$doy, sub$z.n, xlim=c(0,365), pch=sub$pch, xlab='Day of year', ylab='NDWI', col='transparent', ylim=c(min(res$z.n), max(res$z.n)))
-    abline(h=0, lty=2, col='grey') 
-    lines(sub$doy, sub$z.n, col='grey60')
-    points(sub$doy, sub$z.n, pch=sub$pch, col=n.col)
-}
-dev.off()
-
-
-
-
-
-
-
-

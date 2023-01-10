@@ -10,25 +10,14 @@ library(sp)
 library(TrackReconstruction)
 `%notin%` <- Negate(`%in%`)
 
-## Read in some Landsat 7 data
+## Read in some Landsat 7 data for visualizing data resolution on the ground  ------------------
 setwd('/Users/Avril/Documents/krat_remote_sensing/archive/proposal_sat_map_stuff/LE07_L1TP_035038_20020817_20160928_01_T1/')
-all_landsat_bands <- list.files(pattern = glob2rx("*TIF$"),
-                                full.names = TRUE)
-
-# ## Read in some Landsat 5 (C2 L1) data for visualizing data resolution on the ground  ------------------
-# setwd('/Users/Avril/Desktop/remote_sensing_data/1999_C2_L1_data/LT05_L1TP_035038_19990105_20200908_02_T1/')
-# all_landsat_bands <- list.files(pattern = glob2rx("*TIF$"),
-#                                 full.names = TRUE)
-
-# test <- raster(all_landsat_bands[1])
-# plot(test, col=gray(0:100 / 100)) ## plot it to see what it looks like in greyscale
+all_landsat_bands <- list.files(pattern = glob2rx("*TIF$"), full.names = TRUE)
 
 ## manually select the Landsat5ETM bands you need for Tasseled Cap (1,2,3,4,5,7)
 crit_bands <- all_landsat_bands[c(1:5,7)]
 ## stack the images
 ls5_stack <- stack(crit_bands)
-# ## turn it into a brick
-# ls5_brick <- brick(ls5_stack)
 
 #### plot site
 ## set extent variables
@@ -44,7 +33,7 @@ ls5_stack <- crop(ls5_stack, ext)
 raster::plotRGB(ls5_stack, r=3,g=2,b=1, ext=ext)
 par(mar=c(5.1,4.1,4.1,2.1), mgp=c(3,1,0))
 
-#
+
 # ##### 1. Plotting points from the 2 waypoint files separately #####
 # #### try adding waypoints to raster image
 # ## read in smaller file of waypoints
@@ -131,6 +120,7 @@ hist(krats$birthyear, col='grey') ## earliest year is 1989; could examine fitnes
 mounds <- as.character(unique(krats$terr)) ## list of mounds we need location info for (n=210; n=164 if genback>3)
 length(mounds[mounds %notin% gps.pts$terr]) ## 132 mounds do not have GPS-marked waypoints (116 if genback>3)
 unmarked <- mounds[mounds %notin% gps.pts$terr]
+
 ## write list of mounds without GPS waypoints
 # write.csv(mounds[mounds %notin% gps.pts$terr], '/Users/Avril/Desktop/unmarked_mounds.csv', row.names=FALSE)
 ##### ! On closer inspection, it looks like "unmarked" mound names in the database file might actually be covered in the waypoint file, with subpopulation names appended to the end of the mound names #####
@@ -385,7 +375,7 @@ ext <- extent(lo.x, hi.x, lo.y, hi.y)
 #### recorded in list_of_confirmed_grep_matches.csv
 
 ## read in list of manually verified mound locations and matches
-chkd.locs <- read.csv('/Users/Avril/Documents/krat_remote_sensing/archive/sorting_out_mound_names/list_of_confirmed_grep_matches.csv') ## 109 mounds successfully matched after visual inspection
+chkd.locs <- read.csv('/Users/Avril/Documents/krat_remote_sensing/sorting_out_mound_names/list_of_confirmed_grep_matches.csv') ## 109 mounds successfully matched after visual inspection
 ## combine with previously linked waypoint and database points
 chkd.pts <- gps.pts[gps.pts$terr %in% int.locs$terr,] ## narrow down to mounds of interest
 colnames(chkd.pts)[3] <- 'waypoint.name'
@@ -586,7 +576,7 @@ temp <- rbind(int.locs[int.locs$terr %in% unmarked,], int.locs[int.locs$terr=='R
 # write.csv(temp, '/Users/Avril/Desktop/mounds_to_be_assigned.csv', row.names=FALSE)
 
 # ##### 4E. Read in results of manual mound:cell assignment process to get coordinates for centers of those cells #####
-man.ass <- read.csv('/Users/Avril/Documents/krat_remote_sensing/archive/sorting_out_mound_names/manual_mound_cell_assignments.csv')
+man.ass <- read.csv('/Users/Avril/Documents/krat_remote_sensing/sorting_out_mound_names/manual_mound_cell_assignments.csv')
 temp.coords <- as.data.frame(xyFromCell(ls5_stack, man.ass$cell))
 temp.coords$terr <- man.ass$terr
 coordinates(temp.coords) <- c('x','y')
@@ -604,14 +594,74 @@ raster::plotRGB(ls5_stack, r=3,g=2,b=1, ext=ext)
   text(temp.layer) ## add cell numbers to double-check assignments plot correctly
 dev.off()
 
-
-
 gps.pts.plot <- gps.pts ## save as new object prior to format conversions
 coordinates(gps.pts.plot) <- c('long','lat') ## converts to SpatialPointsDataFrame object
 proj4string(gps.pts.plot) <- CRS("+proj=longlat +datum=WGS84")
 gps.pts.plot <- spTransform(gps.pts.plot, CRS("+proj=utm +zone=12 +ellps=WGS84 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs"))
 
-##### 5. Plot mounds with known GPS coords over high-res imagery #####
-## read in mound waypoints
- 
+##### 5. Add in new mounds after switching occupied mound identification approach (4/4/22) #####
+## Read in new list of occupied mounds
+new.mnds <- read.csv('/Users/Avril/Documents/krat_remote_sensing/intermediate_data/annual_occupied_mounds.csv')
+new.mnds <- new.mnds[new.mnds$year >= 1994 & new.mnds$year <= 2005,]
+new.mnds <- new.mnds[which(new.mnds$database.name %notin% gps.pts$terr),] ## narrow it down to mounds without exact name matches in known-GPS mounds
+new.mnds <- new.mnds[!duplicated(new.mnds[,c(2:3)]),] ## n = 133 left
+## identify mounds not already included in known GPS points -- need to use grep
+## because the names in new.mnds include subpopulation suffixes
+OUT <- NULL
+UNMARKED <- NULL
+for(i in 1:nrow(new.mnds)){ ## for each mound without a GPS waypoint,
+  save <- gps.pts[grep(new.mnds$database.name[i], gps.pts$terr),] ## search for name matches in the waypoint file,
+  if(nrow(save) == 0){
+    UNMARKED <- c(UNMARKED, new.mnds$database.name[i])
+  }
+  if(nrow(save) > 0){
+    save <- cbind(save, new.mnds$database.name[i], new.mnds$pop[i]) ## add the database mound name,
+    OUT <- rbind(OUT, save) ## and save the match(es)
+  }
+} 
+nrow(OUT)
+length(unique(OUT$`new.mnds$database.name[i]`)) ### 108 mounds of interest with 125 name matches
+length(UNMARKED) ## 25 mounds of interest with no grep matches in the waypoint file -- examine manually
+colnames(OUT)[c(4:5)] <- c('database.name','pop')
+OUT[which(OUT$pop == 'R1E' | OUT$pop == 'R1W'), 'pop.edit'] <- 'R1'
+OUT$combo <- paste0(OUT$database.name,OUT$pop.edit)
+OUT$auto.match <- OUT$terr == OUT$combo
+UNMARKED <- c(UNMARKED, OUT[OUT$auto.match == FALSE, 'database.name'][OUT[OUT$auto.match == FALSE, 'database.name'] %notin% OUT[OUT$auto.match == TRUE, 'database.name']])
+OUT <- OUT[OUT$auto.match == TRUE,]
+write.table(OUT, '/Users/Avril/Documents/krat_remote_sensing/intermediate_data/22_04_additional_mounds_annual_occupied.txt',
+            sep = '\t', row.names = FALSE, quote = FALSE)
+
+##### !!! PICK UP HERE !!! examine UNMARKED, see if any of these can be mapped #####
+UNMARKED
+UNMARKED <- UNMARKED[UNMARKED %notin% man.ass$terr] ## actually some have already been manually assigned. :|
+## OFFSITE and SHANGRLA can be removed and renamed to match, respectively.
+write.table(UNMARKED, '/Users/Avril/Desktop/22_04_manual_cell_assignments.txt', sep = '\t', quote = FALSE, row.names = FALSE)
+
+## read in full list from KRATP.csv again
+mnd.locs <- read.csv('/Users/Avril/Documents/krats/krat_data_and_paper2/KRATP.csv')
+mnd.locs <- mnd.locs[,c('lat','long','terr')] ## only keep mound location information
+mnd.locs <- mnd.locs[!duplicated(mnd.locs),] ## keep unique rows only
+colnames(mnd.locs) <- c('long','lat','terr') ## lat/long column headings reversed in original file
+UNMARKED[UNMARKED %notin% mnd.locs$terr]
+## only 1 (1011EF4) not included, which is fine. just discard that one.
+pdf('/Users/Avril/Desktop/22_04_mound_GPS_avail_info_LARGE_new_annual_occupied.pdf', width=200, height=200)
+par(mar=c(5.1,4.1,4.1,2.1), mgp=c(3,1,0))
+plot(c(0, mnd.locs$long), c(0, mnd.locs$lat), pch=19, cex=0.5, col='transparent',
+     xlab='Database long position (m)', ylab='Database lat position (m)')
+  points(0, 0, pch=13, cex=5, col='springgreen4')
+  points(mnd.locs, pch=19, col='blue4', cex=5) ## all points
   
+  points(mnd.locs[mnd.locs$terr %in% UNMARKED, 'long'], mnd.locs[mnd.locs$terr %in% UNMARKED, 'lat'],
+         pch=21, col='black', bg='yellow', cex=5) ## points without GPS information
+  points(mnd.locs[mnd.locs$terr=='R2', 'long'], mnd.locs[mnd.locs$terr=='R2', 'lat'],
+         pch=21, col='black', bg='green', cex=5) ## all points labeled 'R2' in database 
+  ## label non-R2 mounds
+  text(mnd.locs[mnd.locs$terr!='R2', 'long'], mnd.locs[mnd.locs$terr!='R2', 'lat'], labels=mnd.locs[mnd.locs$terr!='R2', 'terr'], adj=c(0,3))
+  ## label R2 mounds with their database coordinates so they can be renamed and geo-matched
+  text(mnd.locs[mnd.locs$terr=='R2', 'long'], mnd.locs[mnd.locs$terr=='R2', 'lat'], 
+       labels=paste0(mnd.locs[mnd.locs$terr=='R2', 'terr'],'\n(',mnd.locs[mnd.locs$terr=='R2', 'long'],', ',mnd.locs[mnd.locs$terr=='R2', 'lat'],')'), adj=c(0,3))
+  legend('bottomright', legend=c('reference point','GPS marked','unmarked','R2 in database'), pt.cex=c(1,0.5,1,1),
+         col=c('springgreen4','blue4','black','black'), pt.bg=c(NA,NA,'yellow','green'), pch=c(13,19,21,21), inset=c(0.025,0.025))
+dev.off()
+
+## final list of additional mound:cell assignemnts in 22_04_manual_cell_assignments.txt
