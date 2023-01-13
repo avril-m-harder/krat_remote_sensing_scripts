@@ -7,7 +7,8 @@ library(scales)
 options("rgdal_show_exportToProj4_warnings"="none")
 library(rgdal)
 library(TeachingDemos)
-source('/Users/Avril/Documents/krat_remote_sensing/krat_remote_sensing_scripts/c2l2readMeta.R')
+library(Hmisc)
+source('/Users/Avril/Documents/krat_remote_sensing/krat_remote_sensing_scripts/03b_c2l2readMeta.R')
 `%notin%` <- Negate(`%in%`)
 
 g.col <- 'forestgreen'
@@ -32,7 +33,8 @@ raster::plotRGB(ls5.stack, r=3, g=2, b=1, scale=ls5.stack@data@max[c(3,2,1)], ma
 
 ##### Read in manual mound:cell assignments (n=26) #####
 ### >> also needed to re-name unique mounds that were all labeled 'R2' in the original database 
-man.ass <- read.csv('/Users/Avril/Documents/krat_remote_sensing/archive/sorting_out_mound_names/manual_mound_cell_assignments.csv')
+man.ass <- read.csv('/Users/Avril/Documents/krat_remote_sensing/sorting_out_mound_names/2021_first_round/manual_mound_cell_assignments.csv')
+
 ## rename 'R2' mounds to match their actual locations (unique names R2.1-R2.6)
 r2 <- man.ass[man.ass$terr=='R2',]
 for(i in 1:nrow(r2)){
@@ -49,7 +51,7 @@ coordinates(mnd.locs) <- c('long','lat') ## converts to SpatialPointsDataFrame o
 proj4string(mnd.locs) <- CRS("+proj=longlat +datum=WGS84") ## still in degrees
 mnd.locs <- sp::spTransform(mnd.locs, CRS("+proj=utm +zone=12 +ellps=WGS84 +towgs84=0,0,0,0,0,0,0 +units=m +no_defs")) ## now in meters
 ### manual mound:cell assignments
-man.ass <- read.csv('/Users/Avril/Documents/krat_remote_sensing/archive/sorting_out_mound_names/manual_mound_cell_assignments.csv')
+man.ass <- read.csv('/Users/Avril/Documents/krat_remote_sensing/sorting_out_mound_names/2021_first_round/manual_mound_cell_assignments.csv')
 man.cells <- man.ass[,c('terr','new.db.name','cell')]
 man.cells[!is.na(man.cells$new.db.name), 'terr'] <- man.cells[!is.na(man.cells$new.db.name), 'new.db.name']
 man.cells$ID <- c((max(mnd.cells$ID)+1):(max(mnd.cells$ID)+nrow(man.cells)))
@@ -92,11 +94,16 @@ files <- c(files1, files2)
 tc.dat <- read.csv(paste0('/Users/Avril/Documents/krat_remote_sensing/C2L2_tc_output_tables/C2L2_',tc.fn,'.csv'))
 mc.key <- read.csv(paste0('/Users/Avril/Documents/krat_remote_sensing/C2L2_tc_output_tables/C2L2_',mc.fn,'.csv'))
 
-# ## scale and center TC + NDWI
-# tc.dat$z.g <- scale(tc.dat$greenness, scale=TRUE, center=TRUE)
-# tc.dat$z.b <- scale(tc.dat$brightness, scale=TRUE, center=TRUE)
-# tc.dat$z.w <- scale(tc.dat$wetness, scale=TRUE, center=TRUE)
-# tc.dat$z.n <- scale(tc.dat$NDWI, scale=TRUE, center=TRUE)
+## identify other indices not super correlated with TC indices
+samps <- sample(c(1:nrow(tc.dat)), size = 1000, replace = FALSE)  ## sample 1000 random cells across all scenes
+temp <- tc.dat[samps, c(2:27)]
+res <- rcorr(as.matrix(temp))
+round(res$P, 3) ## all of the other indices (besides TC and temp.k) are significantly correlated with greenness. proceeding with just TC and temp.k.
+
+# ## scale and center TC
+tc.dat$z.g <- scale(tc.dat$greenness, scale=TRUE, center=TRUE)
+tc.dat$z.b <- scale(tc.dat$brightness, scale=TRUE, center=TRUE)
+tc.dat$z.w <- scale(tc.dat$wetness, scale=TRUE, center=TRUE)
 
 ## get list of mound:cell associations
 mounds.cells.only <- mc.key[,c('database.name','cell.num')]
@@ -208,9 +215,6 @@ sum(CT[,3]) ## number of cells where only 1 mound was recorded with offspring in
 ## add TC information for focal cell
 sub.tc.dat <- tc.dat[,c(1:5,7,10,14:23)] ## subset TC information to just keep relevant bits:
 ## cell # / TC + NDWI / doy / path / year / month / 6-month lag year / 1-year lag year / month season / weather season
-
-### only keep data from Path 35 (per Lana's recommendation -- see email)
-
 
 ##### Viz #####
 
