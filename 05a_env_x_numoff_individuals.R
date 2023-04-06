@@ -660,36 +660,7 @@ plot(0,0, xlim = c(min(OUT[,2]), max(OUT[,2])), ylim = c(0, 10), xlab = 'Number 
 
 dev.off()
 
-# ## try it with > or < 45 repro females
-# OUT1 <- NULL
-# for(r in 1:nrow(sub)){
-#   if(OUT[OUT[,1] == sub$year[r], 2] < 45){
-#     save <- c(0, sub$num.off[r], sub$num.surv[r])
-#     OUT1 <- rbind(OUT1, save)
-#   } else{
-#     save <- c(1, sub$num.off[r], sub$num.surv[r])
-#     OUT1 <- rbind(OUT1, save)
-#   }
-# }
-# 
-# pdf('/Users/Avril/Desktop/offspring_by_numadultfemales.pdf', width = 6, height = 5)
-# plot(jitter(OUT1[,1], factor = 0.4), OUT1[,2], xaxt = 'n', xlab = '', ylab = 'Number of offspring', pch = 19, xlim = c(-0.2, 1.2),
-#      col = alpha('skyblue3', 0.3), main = 'Number of offspring by number of\nadult females in population')
-#   axis(1, at = c(0,1), labels = c('< 45 adult females','> 45 adults females'))
-#   lines(c(-0.1, 0.1), c(mean(OUT1[OUT1[,1] == 0, 2]), mean(OUT1[OUT1[,1] == 0, 2])), lwd = 3, col = 'skyblue4')
-#   lines(c(0.9, 1.1), c(mean(OUT1[OUT1[,1] == 1, 2]), mean(OUT1[OUT1[,1] == 1, 2])), lwd = 3, col = 'skyblue4')
-#   t.test(OUT1[,2] ~ OUT1[,1]) ## greater # offspring when # adult females < 45
-#   text(0.5, 8, adj = c(0.5, 0.5), labels = c('t-test\n# observations < 45 females = 231\n# observations > 45 females = 560\ndf = 366.57\np = 8.144e-5'))
-#   
-# OUT2 <- OUT1[OUT1[,2] > 0,]
-# plot(jitter(OUT2[,1], factor = 0.4), OUT2[,3], xaxt = 'n', xlab = '', ylab = 'Number of surviving offspring', pch = 19, xlim = c(-0.2, 1.2),
-#      col = alpha('skyblue3', 0.3), main = 'Number of surviving offspring by number of\nadult females in population')
-#   axis(1, at = c(0,1), labels = c('< 45 adult females','> 45 adults females'))
-#   lines(c(-0.1, 0.1), c(mean(OUT2[OUT2[,1] == 0, 3]), mean(OUT2[OUT2[,1] == 0, 3])), lwd = 3, col = 'skyblue4')
-#   lines(c(0.9, 1.1), c(mean(OUT2[OUT2[,1] == 1, 3]), mean(OUT2[OUT2[,1] == 1, 3])), lwd = 3, col = 'skyblue4')
-#   t.test(OUT2[,3] ~ OUT2[,1]) ## greater # surviving offspring when # adults females < 45
-#   text(0.5, 6, adj = c(0.5, 0.5), labels = c('t-test\n# observations < 45 females = 157\n# observations > 45 females = 296\ndf = 265.46\np = 3.28e-7'))
-# dev.off()  
+
 
 ##### >> Summer rainy #####
 sub <- env.fem.ann[env.fem.ann$type == 2 & env.fem.ann$season == 1,]        ## subset to summer rainy season summary stats
