@@ -1,6 +1,7 @@
 # krat_remote_sensing_scripts
 
-### Scripts and files associated with ROH inference testing manuscript, "Detectability of runs of homozygosity is influenced by analysis parameters and population-specific demographic history," currently available on [bioRxiv](https://www.biorxiv.org/content/10.1101/2022.09.29.510155v1) and submitted for peer-review.
+### Scripts and files associated with manuscript, *Individual fitness in a small desert mammal predicted by remotely sensed environmental measurements*. 
+### Currently available on [bioRxiv](https://www.biorxiv.org/[link]) and submitted for peer-review.
 
 ### Scripts for downloading and analyzing Landsat 5 TM scenes 
 * *01_landsat2_dl_aws_s3.sh*: downloads scenes of interest (listed in c2l2_scenes_full_list.txt) using AWS s3api ([USGS guide to commercial cloud downloads](https://prd-wret.s3.us-west-2.amazonaws.com/assets/palladium/production/atoms/files/LSDS-2032-Landsat-Commercial-Cloud-Direct-Access-Users-Guide-v2.pdf.pdf))
