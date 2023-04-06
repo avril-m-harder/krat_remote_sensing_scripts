@@ -13,7 +13,8 @@
 * *06_poplevel_analyses.R*: tests relationships between remote sensing and PRISM data and population-level measures (*i.e.*, number of active mounds, absolute and proportional changes in population size, average number of offspring per female, and average number of offspring surviving to age 1 per female). includes permutation tests for final models
 
 ### Additional scripts
-
+* *98_fig_01_map.R*: generates maps presented in Figure 1
+* *98_landcover_mapping.R*: generates landcover maps presented in SI Figure ##
 
 ### Files
-* *98_c2l2_scenes_full_list.txt*: list of scenes to be downloaded using the 01_landsat2_dl_aws_s3.sh script
+* *99_c2l2_scenes_full_list.txt*: list of scenes to be downloaded using the 01_landsat2_dl_aws_s3.sh script
