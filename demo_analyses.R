@@ -12,6 +12,28 @@ res <- read.csv('/Users/Avril/Documents/krat_remote_sensing/raw_data/peters_data
 ## filter by population, using same list J did for krat2
 res <- res[res$POP %in% c('R2','SSW','R1W','R1E'),]
 
+## write dataframe with just number of active mounds per year
+OUT <- NULL
+for(y in unique(res$YEAR)){
+  save <- c(y, length(unique(res[res$YEAR == y, 'RESIDENCE'])))
+  OUT <- rbind(OUT, save)
+}
+colnames(OUT) <- c('year','num.active.mnds')
+write.csv(OUT, '/Users/Avril/Documents/krat_remote_sensing/intermediate_data/annual_active_mounds.csv', row.names = FALSE)
+
+## make data frame of all active mounds
+mnds <- res
+##### !! convert this to a table of year / pop / residence #####
+OUT <- NULL
+for(y in unique(mnds$YEAR)){
+  sub <- mnds[mnds$YEAR == y, c('YEAR','POP','RESIDENCE')]
+  sub <- sub[!duplicated(sub),]
+  OUT <- rbind(OUT, sub)
+}
+colnames(OUT) <- c('year','pop','database.name')
+write.csv(OUT, '/Users/Avril/Documents/krat_remote_sensing/intermediate_data/annual_occupied_mounds_all_indivs.csv',
+          row.names = FALSE)
+
 ## for purpose of identifying occupied mounds, create new dataframe with only females and juveniles 
 ## (i.e., an attempt to capture all potential natal mounds / reproductive sites)
 mnds <- res[which((res$AGE == 'A' & res$SEX == 'F') | (res$AGE == 'J')),]

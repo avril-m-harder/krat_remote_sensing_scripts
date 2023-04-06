@@ -16,6 +16,10 @@ library(ggsn)
 library(smoothr)
 library(tiff)
 library(jpeg)
+library(rgeos)
+library(rasterVis)
+library(dplyr)
+library(geodata)
 
 ## read in range map shapefile (downloaded from IUCN on 2/24/21)
 range <- st_read('redlist_species_data_5d4b0dfc-6c14-467a-a3f6-5d68c8ae2371/data_0.shp')
@@ -206,3 +210,43 @@ ggplot(data = states) +
   #                transform=TRUE, location='bottomleft', st.size=3, st.dist=.03) +
   coord_sf(xlim = c(-120, -95), ylim = c(20, 38), expand = FALSE)
 # dev.off()
+
+
+##### topographic map, steps: https://gis.stackexchange.com/questions/224035/how-to-create-a-crisp-topographical-terrain-map-with-ggplot2 #####
+us <- raster::getData('GADM', country = 'USA', level = 1)
+us <- us[us$NAME_1 %in% c('Arizona','New Mexico'),]
+plot(us)
+
+us.c <- gCentroid(us) %>% coordinates()
+
+setwd('/Users/Avril/Documents/krat_remote_sensing/range_map_materials/usgs_topo_tiff_downloads/')
+fns <- list.files()
+for(f in 1:length(fns)){
+ if(f == 1){
+   topo <- raster(fns[f])
+ } else{
+   temp <- raster(fns[f])
+   topo <- merge(topo, temp)
+ }
+}
+
+# topo <- raster('/Users/Avril/Documents/krat_remote_sensing/range_map_materials/usgs_topo_tiff_downloads/USGS_13_n32w110_20211229.tif')
+pal <- colorRampPalette(c('sienna4','tan'))
+pdf('/Users/Avril/Desktop/topo_test.pdf', width = 15, height = 15)
+plot(topo, col = pal(100))
+dev.off()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
