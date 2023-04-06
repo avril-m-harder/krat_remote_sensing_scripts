@@ -1,52 +1,14 @@
 library(scales)
 library(lmtest)
-library(NatParksPalettes)
 library(beyonce)
 `%notin%` <- Negate(`%in%`)
 
 ## Beyonce palette option (only need wetness, brightness, surface temp)
-# pdf('/Users/Avril/Desktop/beyonce75.pdf', width = 6, height = 5)
-# beyonce_palette(75)
-# dev.off()
 w.col <- beyonce_palette(75)[2]
 b.col <- beyonce_palette(75)[5]
 t.col <- beyonce_palette(75)[7]
 cols <- c(w.col, b.col, t.col)
 names <- c('wetness','brightness','temp.k')
-
-## NatParks palette option
-# w.col <- natparks.pals('Yellowstone')[1]
-# g.col <- natparks.pals('Yellowstone')[4]
-# t.col <- natparks.pals('Yellowstone')[3]
-# b.col <- natparks.pals('Yellowstone')[6]
-# pp.col <- natparks.pals('Yellowstone')[5]
-# pt.col <- natparks.pals('Olympic')[7]
-# cols <- c(g.col, w.col, b.col, t.col, pp.col, pt.col)
-# names <- c('greenness','wetness','brightness','temp.k','PRISM precip','PRISM temp')
-
-## manual option
-# g.col <- 'forestgreen'
-# w.col <- 'deepskyblue2'
-# b.col <- 'tan4'
-# t.col <- 'chocolate2'
-# pp.col <- 'turquoise4'
-# pt.col <- 'tomato2'
-# cols <- c(g.col, w.col, b.col, t.col, pp.col, pt.col)
-
-## plot colors to test
-# pdf('/Users/Avril/Desktop/colors.pdf', width = 5, height = 5)
-# plot(0,0, xlim = c(0,7), ylim = c(0,1), col = 'transparent')
-# 
-# y <- 0.85
-# for(c in 1:6){
-#   polygon(c(c-1,c,c,c-1), c(0,0,1,1), col = cols[c], border = NA)
-# }
-# for(c in 1:6){
-#   text(c, y, names[c])
-#   y <- y-0.15
-# }
-# dev.off()
-
 
 ##### Read in data #####
 ## demographic data
@@ -55,7 +17,6 @@ pop.dat <- read.csv('/Users/Avril/Documents/krat_remote_sensing/intermediate_dat
 ## environmental data
 prism.dat <- read.csv('/Users/Avril/Documents/krat_remote_sensing/intermediate_data/prism_annual_and_seasonal_means.csv')
 tc.dat <- read.csv('/Users/Avril/Documents/krat_remote_sensing/intermediate_data/occ_and_adj_cells_12monthinterval_means_seasoneq.csv')
-
 
 ## active mounds
 act.mnds <- read.csv('/Users/Avril/Documents/krat_remote_sensing/intermediate_data/annual_active_mounds.csv')
@@ -431,12 +392,9 @@ for(c in cols){
   k <- k+1
 }
 dev.off()
-# 
-# mod1 <- lm(temp.dat$num.off ~ temp.dat$total.precip.mm + temp.dat$mean.t.degC + temp.dat$mean.min.t.degC +
-#              temp.dat$mean.max.t.degC + temp.dat$greenness.mean + temp.dat$brightness.mean + temp.dat$temp.k.mean +
-#              temp.dat$wetness.mean)
-# summary(mod1) ## this is shit
-# 
+
+
+
 ##### >> Summer rainy season data #####
 sub.prism <- prism.dat[prism.dat$temporal.scale == 'seasonal' & prism.dat$season == 1,]
 sub.tc <- tc.dat[tc.dat$temporal.scale == 'seasonal' & tc.dat$season == 1,]
@@ -462,12 +420,8 @@ for(c in cols){
   k <- k+1
 }
 dev.off()
-# 
-# mod1 <- lm(temp.dat$num.off ~ temp.dat$total.precip.mm + temp.dat$mean.t.degC + temp.dat$mean.min.t.degC +
-#              temp.dat$mean.max.t.degC + temp.dat$greenness.mean + temp.dat$brightness.mean + temp.dat$temp.k.mean +
-#              temp.dat$wetness.mean)
-# summary(mod1) ## this is shit
-# 
+
+
 ##### >> Winter rainy season data #####
 sub.prism <- prism.dat[prism.dat$temporal.scale == 'seasonal' & prism.dat$season == 2,]
 sub.tc <- tc.dat[tc.dat$temporal.scale == 'seasonal' & tc.dat$season == 2,]
@@ -493,37 +447,8 @@ for(c in cols){
   k <- k+1
 }
 dev.off()
-# 
-# mod1 <- lm(temp.dat$num.off ~ temp.dat$total.precip.mm + temp.dat$mean.t.degC + temp.dat$mean.min.t.degC +
-#              temp.dat$mean.max.t.degC + temp.dat$greenness.mean + temp.dat$brightness.mean + temp.dat$temp.k.mean +
-#              temp.dat$wetness.mean)
-# summary(mod1) ## remove min.t
-# 
-# mod2 <- lm(temp.dat$num.off ~ temp.dat$total.precip.mm + temp.dat$mean.t.degC +
-#              temp.dat$mean.max.t.degC + temp.dat$greenness.mean + temp.dat$brightness.mean + temp.dat$temp.k.mean +
-#              temp.dat$wetness.mean)
-# summary(mod2) ## remove temp.k
-# 
-# mod3 <- lm(temp.dat$num.off ~ temp.dat$total.precip.mm + temp.dat$mean.t.degC +
-#              temp.dat$mean.max.t.degC + temp.dat$greenness.mean + temp.dat$brightness.mean +
-#              temp.dat$wetness.mean)
-# summary(mod3) ## remove greenness
-# 
-# mod4 <- lm(temp.dat$num.off ~ temp.dat$total.precip.mm + temp.dat$mean.t.degC +
-#              temp.dat$mean.max.t.degC + temp.dat$brightness.mean +
-#              temp.dat$wetness.mean)
-# summary(mod4) ## remove brightness
-# 
-# mod5 <- lm(temp.dat$num.off ~ temp.dat$total.precip.mm + temp.dat$mean.t.degC + temp.dat$mean.max.t.degC + temp.dat$wetness.mean)
-# summary(mod5) ## remove wetness
-# 
-# mod6 <- lm(temp.dat$num.off ~ temp.dat$total.precip.mm + temp.dat$mean.t.degC + temp.dat$mean.max.t.degC)
-# summary(mod6) ## remove mean.t.deg.C? all predictors sig but overall model is not
-# 
-# mod7 <- lm(temp.dat$num.off ~ temp.dat$total.precip.mm + temp.dat$mean.max.t.degC)
-# summary(mod7) ## now this is shit, idk
-# 
-# 
+
+
 ##### Average # surviving offspring per female #####
 ## num.surv.perf ~ environmental data from offspring.year + 1
 ##### >> Annual data #####
@@ -554,13 +479,8 @@ for(c in cols){
   k <- k+1
 }
 dev.off()
-# ## nothing (backwards stepwise regression selection was also shit)
-# 
-# mod1 <- lm(temp.dat$num.surv.perf ~ temp.dat$total.precip.mm + temp.dat$mean.t.degC + temp.dat$mean.min.t.degC +
-#              temp.dat$mean.max.t.degC + temp.dat$greenness.mean.szneq + temp.dat$brightness.mean.szneq + temp.dat$temp.k.mean.szneq +
-#              temp.dat$wetness.mean.szneq)
-# summary(mod1) ## this is shit
-# 
+
+
 ##### >> Summer rainy season data #####
 sub.prism <- prism.dat[prism.dat$temporal.scale == 'seasonal' & prism.dat$season == 1,]
 sub.tc <- tc.dat[tc.dat$temporal.scale == 'seasonal' & tc.dat$season == 1,]

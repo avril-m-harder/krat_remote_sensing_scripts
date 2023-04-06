@@ -9,7 +9,7 @@
 * *03b_c2l2readMeta.R*: an updated version of the RStoolbox function *readMeta()* that is compatible with Collection 2 Level 2 metadata files (*_MTL.txt)
 * *05a_env_x_numoff_individuals.R*: 
 * *05b_env_x_numsurv_individuals.R*: 
-* *06_poplevel_analyses.R*:
+* *06_poplevel_analyses.R*: tests relationships between remote sensing and PRISM data and population-level measures (*i.e.*, number of active mounds, absolute and proportional changes in population size, average number of offspring per female, and average number of offspring surviving to age 1 per female). includes permutation tests for final models.
 
 ### Additional scripts
 
