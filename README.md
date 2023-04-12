@@ -14,7 +14,6 @@
 
 ### Additional scripts
 * *98_fig_01_map.R*: generates maps presented in Figure 1
-* *98_landcover_mapping.R*: generates landcover maps presented in SI Figure ##
 
 ### Files
 * *99_c2l2_scenes_full_list.txt*: list of scenes to be downloaded using the 01_landsat2_dl_aws_s3.sh script
