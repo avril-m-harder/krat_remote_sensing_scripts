@@ -430,6 +430,13 @@ logLik(nb3)
 ## compare the two approaches
 lrtest(p3, nb3) ## p < 2.2e-16; NB model significantly better fit (AIC is lower too, idk if those can be directly compared?)
 
+## summary for each single-predictor model
+summary(glm.nb(num.off ~ mean.b, data = sub))      ## p = 0.0308
+summary(glm.nb(num.off ~ mean.w, data = sub))      ## p = 0.107
+summary(glm.nb(num.off ~ mean.g, data = sub))      ## p = 0.816
+summary(glm.nb(num.off ~ mean.tempk, data = sub))  ## p = 0.0610
+cor(sub[,c(7:10)])
+
 
 ##### >> Summer rainy season averages / totals #####
 sub <- env.fem.ann[env.fem.ann$type == 2 & env.fem.ann$season == 1,]        ## subset to summer rainy season summary stats
@@ -512,7 +519,14 @@ sum(E2^2) / (N - p) ## 2.41 -- overdispersion
 
 nb1 <- glm.nb(num.off ~ mean.b,
               data = sub)
-lrtest(p1, nb1) 
+lrtest(p1, nb1)
+
+## summary for each single-predictor model
+summary(glm.nb(num.off ~ mean.b, data = sub))      ## p = 0.0011
+summary(glm.nb(num.off ~ mean.w, data = sub))      ## p = 0.116
+summary(glm.nb(num.off ~ mean.g, data = sub))      ## p = 0.909
+summary(glm.nb(num.off ~ mean.tempk, data = sub))  ## p = 0.875
+cor(sub[,c(7:10)])
 
 ##### >> Winter rainy season averages / totals #####
 sub <- env.fem.ann[env.fem.ann$type == 2 & env.fem.ann$season == 2,]        ## subset to winter rainy season summary stats
@@ -586,6 +600,13 @@ sum(E2^2) / (N - p) ## 0.95 -- slight underdispersion
 logLik(nb3)
 
 lrtest(p3, nb3)
+
+## summary for each single-predictor model
+summary(glm.nb(num.off ~ mean.b, data = sub))      ## p = 0.16
+summary(glm.nb(num.off ~ mean.w, data = sub))      ## p = 0.0419
+summary(glm.nb(num.off ~ mean.g, data = sub))      ## p = 0.112
+summary(glm.nb(num.off ~ mean.tempk, data = sub))  ## p = 0.0114
+cor(sub[,c(7:10)])
 
 ##### Final model for each time frame #####
 library(jtools)

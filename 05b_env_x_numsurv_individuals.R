@@ -426,6 +426,13 @@ logLik(nb4)
 
 lrtest(p4, nb4)
 
+## summary for each single-predictor model
+summary(glm.nb(num.surv ~ mean.b, data = sub))      ## p = 0.305
+summary(glm.nb(num.surv ~ mean.w, data = sub))      ## p = 0.824
+summary(glm.nb(num.surv ~ mean.g, data = sub))      ## p = 0.855
+summary(glm.nb(num.surv ~ mean.tempk, data = sub))  ## p = 8.3e-6
+cor(sub[,c(8:11)])
+
 ##### >> Summer rainy season averages / totals #####
 sub <- env.fem.ann[env.fem.ann$type == 2 & env.fem.ann$season == 1,]        ## subset to seasonal summary stats
 
@@ -518,6 +525,13 @@ sum(E2^2) / (N - p) ## 0.98 -- underdispersion
 logLik(nb4)
 
 lrtest(p4, nb4)
+
+## summary for each single-predictor model
+summary(glm.nb(num.surv ~ mean.b, data = sub))      ## p = 0.0375
+summary(glm.nb(num.surv ~ mean.w, data = sub))      ## p = 0.687
+summary(glm.nb(num.surv ~ mean.g, data = sub))      ## p = 0.9975
+summary(glm.nb(num.surv ~ mean.tempk, data = sub))  ## p = 0.372
+cor(sub[!is.na(sub$mean.g),c(8:11)])
 
 ##### >> Winter rainy season averages / totals #####
 sub <- env.fem.ann[env.fem.ann$type == 2 & env.fem.ann$season == 2,]        ## subset to seasonal summary stats
