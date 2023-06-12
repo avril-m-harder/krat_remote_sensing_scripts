@@ -594,7 +594,7 @@ summary(nb4) ## p = 8.3e-6
 # plot(sub$mean.tempk-273.15, sub$num.off, pch = 19, col = alpha(t.col, 0.8), xlab = 'Mean annual surface temperature (deg C)',
 #      ylab = 'Number of surviving offspring')
 
-pdf('/Users/Avril/Desktop/annual_surftemp_v_numsurv_effects.pdf', width = 3, height = 4)
+# pdf('/Users/Avril/Desktop/annual_surftemp_v_numsurv_effects.pdf', width = 3, height = 4)
 effect_plot(nb4, pred = mean.tempk, interval = TRUE, plot.points = TRUE, partial.residuals = FALSE, 
             colors = t.col, point.alpha = 0.6, centered = 'all') +
   theme_bw() + 
@@ -605,7 +605,46 @@ effect_plot(nb4, pred = mean.tempk, interval = TRUE, plot.points = TRUE, partial
         # axis.line = element_line(colour = "black"),
         axis.text=element_text(size=12, colour = 'black'),
         axis.title=element_text(size=12))
+# dev.off()
+
+## t-test for 0 vs. >0 surviving offspring
+sub[sub$num.surv == 0, 'cat.surv'] <- 0
+sub[sub$num.surv > 0, 'cat.surv'] <- 1
+n <- nrow(sub[!is.na(sub$mean.b),])
+m1 <- mean(sub[sub$cat.surv == 0, 'mean.tempk'], na.rm = TRUE)
+sd1 <- sd(sub[sub$cat.surv == 0, 'mean.tempk'], na.rm = TRUE)/sqrt(n)*1.96
+m2 <- mean(sub[sub$cat.surv == 1, 'mean.tempk'], na.rm = TRUE)
+sd2 <- sd(sub[sub$cat.surv == 1, 'mean.tempk'], na.rm = TRUE)/sqrt(n)*1.96
+
+pdf('/Users/Avril/Desktop/t-test_catnumoff_v_annual_surfacetemp.pdf', width = 5, height = 6)
+plot(jitter(sub$cat.surv, factor = 0.8), sub$mean.tempk, 
+     # pch = 19, col = alpha(t.col, 0.5),  ## with points() below, toggle based on whether points should be in back- or foreground
+     pch = 19, col = 'transparent',
+     xlim = c(-0.4, 1.4),
+     xlab = 'Number of offspring surviving to age 1',
+     ylab = 'Mean annual surface temperature (deg C)', xaxt = 'n')
+  axis(1, at = c(0,1), labels = c('0','> 0'))
+  lines(x = c(-0.2, 0.2), 
+        y = c(m1, m1),
+        col = t.col, lwd = 3)
+  polygon(x = c(-0.15, 0.15, 0.15, -0.15),
+          y = c(m1-sd1, m1-sd1, m1+sd1, m1+sd1),
+          border = NA, col = alpha(t.col, 0.6))
+  lines(x = c(0.8, 1.2), 
+        y = c(m2, m2),
+        col = t.col, lwd = 3)
+  polygon(x = c(0.85, 1.15, 1.15, 0.85),
+          y = c(m2-sd2, m2-sd2, m2+sd2, m2+sd2),
+          border = NA, col = alpha(t.col, 0.6))
+  points(jitter(sub$cat.surv, factor = 0.8), sub$mean.tempk, 
+         pch = 19, col = alpha(t.col, 0.4), cex = 0.75)
 dev.off()
+  
+shapiro.test(sub[sub$cat.surv == 0, 'mean.tempk']) ## neither set is normally distributed, but sample sizes are large
+shapiro.test(sub[sub$cat.surv == 1, 'mean.tempk']) ## n = 182 and n = 233
+bartlett.test(sub$mean.tempk ~ sub$cat.surv) ## non-equal variances
+t.test(sub[sub$cat.surv == 0, 'mean.tempk'], sub[sub$cat.surv == 1, 'mean.tempk'],
+       paired = FALSE, var.equal = FALSE) ## p = 0.002154, sig different
 
 
 ## Summer rainy
@@ -617,7 +656,7 @@ summary(nb4) ## p = 0.04
 plot(sub$mean.b, sub$num.off, pch = 19, col = alpha(b.col, 0.8), xlab = 'Mean summer rainy season brightness',
      ylab = 'Number of surviving offspring')
 
-pdf('/Users/Avril/Desktop/2_x_2_summer_brightness_v_numsurv_effects.pdf', width = 4.5, height = 4.5)
+# pdf('/Users/Avril/Desktop/2_x_2_summer_brightness_v_numsurv_effects.pdf', width = 4.5, height = 4.5)
 effect_plot(nb4, pred = mean.b, interval = TRUE, plot.points = TRUE, partial.residuals = FALSE, 
             colors = b.col, point.alpha = 0.6, point.size = 2, centered = 'all') +
   theme_bw() +
@@ -629,15 +668,18 @@ effect_plot(nb4, pred = mean.b, interval = TRUE, plot.points = TRUE, partial.res
         # axis.line = element_line(colour = "black"),
         axis.text=element_text(size=12, colour = 'black'),
         axis.title=element_text(size=12))
-dev.off()
+# dev.off()
 
+## t-test for 0 vs. >0 surviving offspring
 sub[sub$num.surv == 0, 'cat.surv'] <- 0
 sub[sub$num.surv > 0, 'cat.surv'] <- 1
+n <- nrow(sub[!is.na(sub$mean.b),])
 m1 <- mean(sub[sub$cat.surv == 0, 'mean.b'], na.rm = TRUE)
-sd1 <- sd(sub[sub$cat.surv == 0, 'mean.b'], na.rm = TRUE)
+sd1 <- sd(sub[sub$cat.surv == 0, 'mean.b'], na.rm = TRUE)/sqrt(n)*1.96
 m2 <- mean(sub[sub$cat.surv == 1, 'mean.b'], na.rm = TRUE)
-sd2 <- sd(sub[sub$cat.surv == 1, 'mean.b'], na.rm = TRUE)
+sd2 <- sd(sub[sub$cat.surv == 1, 'mean.b'], na.rm = TRUE)/sqrt(n)*1.96
 
+pdf('/Users/Avril/Desktop/t-test_catnumoff_v_summer_brightness.pdf', width = 5, height = 6)
 plot(jitter(sub$cat.surv, factor = 0.8), sub$mean.b, 
      # pch = 19, col = alpha(b.col, 0.5),  ## with points() below, toggle based on whether points should be in back- or foreground
      pch = 19, col = 'transparent',
@@ -647,19 +689,20 @@ plot(jitter(sub$cat.surv, factor = 0.8), sub$mean.b,
   axis(1, at = c(0,1), labels = c('0','> 0'))
   lines(x = c(-0.2, 0.2), 
         y = c(m1, m1),
-        col = b.col, lwd = 4)
+        col = b.col, lwd = 3)
   polygon(x = c(-0.15, 0.15, 0.15, -0.15),
           y = c(m1-sd1, m1-sd1, m1+sd1, m1+sd1),
           border = NA, col = alpha(b.col, 0.6))
   lines(x = c(0.8, 1.2), 
         y = c(m2, m2),
-        col = b.col, lwd = 4)
+        col = b.col, lwd = 3)
   polygon(x = c(0.85, 1.15, 1.15, 0.85),
           y = c(m2-sd2, m2-sd2, m2+sd2, m2+sd2),
           border = NA, col = alpha(b.col, 0.6))
   points(jitter(sub$cat.surv, factor = 0.8), sub$mean.b, 
-         pch = 19, col = alpha(b.col, 0.5))
-
+         pch = 19, col = alpha(b.col, 0.5), cex = 0.75)
+dev.off()
+  
 shapiro.test(sub[sub$cat.surv == 0, 'mean.b']) ## check that data are normally distributed
 shapiro.test(sub[sub$cat.surv == 1, 'mean.b']) ## (both p > 0.05, good to go)
 bartlett.test(sub$mean.b ~ sub$cat.surv) ## check for equal variances, p > 0.05, good to go 
