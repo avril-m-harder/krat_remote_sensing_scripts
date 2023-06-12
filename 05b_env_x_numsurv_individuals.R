@@ -617,7 +617,7 @@ summary(nb4) ## p = 0.04
 plot(sub$mean.b, sub$num.off, pch = 19, col = alpha(b.col, 0.8), xlab = 'Mean summer rainy season brightness',
      ylab = 'Number of surviving offspring')
 
-pdf('/Users/Avril/Desktop/summer_brightness_v_numsurv_effects.pdf', width = 3, height = 4)
+pdf('/Users/Avril/Desktop/summer_brightness_v_numsurv_effects.pdf', width = 5, height = 5)
 effect_plot(nb4, pred = mean.b, interval = TRUE, plot.points = TRUE, partial.residuals = FALSE, 
             colors = b.col, point.alpha = 0.6, centered = 'all') +
   theme_bw() + 
@@ -629,6 +629,41 @@ effect_plot(nb4, pred = mean.b, interval = TRUE, plot.points = TRUE, partial.res
         axis.text=element_text(size=12, colour = 'black'),
         axis.title=element_text(size=12))
 dev.off()
+
+sub[sub$num.surv == 0, 'cat.surv'] <- 0
+sub[sub$num.surv > 0, 'cat.surv'] <- 1
+m1 <- mean(sub[sub$cat.surv == 0, 'mean.b'], na.rm = TRUE)
+sd1 <- sd(sub[sub$cat.surv == 0, 'mean.b'], na.rm = TRUE)
+m2 <- mean(sub[sub$cat.surv == 1, 'mean.b'], na.rm = TRUE)
+sd2 <- sd(sub[sub$cat.surv == 1, 'mean.b'], na.rm = TRUE)
+
+plot(jitter(sub$cat.surv, factor = 0.8), sub$mean.b, 
+     # pch = 19, col = alpha(b.col, 0.5),  ## with points() below, toggle based on whether points should be in back- or foreground
+     pch = 19, col = 'transparent',
+     xlim = c(-0.4, 1.4),
+     xlab = 'Number of offspring surviving to age 1',
+     ylab = 'Mean summer rainy season brightness', xaxt = 'n')
+  axis(1, at = c(0,1), labels = c('0','> 0'))
+  lines(x = c(-0.2, 0.2), 
+        y = c(m1, m1),
+        col = b.col, lwd = 4)
+  polygon(x = c(-0.15, 0.15, 0.15, -0.15),
+          y = c(m1-sd1, m1-sd1, m1+sd1, m1+sd1),
+          border = NA, col = alpha(b.col, 0.6))
+  lines(x = c(0.8, 1.2), 
+        y = c(m2, m2),
+        col = b.col, lwd = 4)
+  polygon(x = c(0.85, 1.15, 1.15, 0.85),
+          y = c(m2-sd2, m2-sd2, m2+sd2, m2+sd2),
+          border = NA, col = alpha(b.col, 0.6))
+  points(jitter(sub$cat.surv, factor = 0.8), sub$mean.b, 
+         pch = 19, col = alpha(b.col, 0.5))
+
+shapiro.test(sub[sub$cat.surv == 0, 'mean.b']) ## check that data are normally distributed
+shapiro.test(sub[sub$cat.surv == 1, 'mean.b']) ## (both p > 0.05, good to go)
+bartlett.test(sub$mean.b ~ sub$cat.surv) ## check for equal variances, p > 0.05, good to go 
+t.test(sub[sub$cat.surv == 0, 'mean.b'], sub[sub$cat.surv == 1, 'mean.b'],
+       paired = FALSE, var.equal = TRUE) ## p = 0.040, sig different
 
 ## Winter rainy
 sub <- env.fem.ann[env.fem.ann$type == 2 & env.fem.ann$season == 2,]        ## subset to winter rainy season summary stats
