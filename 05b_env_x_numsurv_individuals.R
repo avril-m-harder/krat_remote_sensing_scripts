@@ -620,7 +620,8 @@ plot(sub$mean.b, sub$num.off, pch = 19, col = alpha(b.col, 0.8), xlab = 'Mean su
 pdf('/Users/Avril/Desktop/2_x_2_summer_brightness_v_numsurv_effects.pdf', width = 4.5, height = 4.5)
 effect_plot(nb4, pred = mean.b, interval = TRUE, plot.points = TRUE, partial.residuals = FALSE, 
             colors = b.col, point.alpha = 0.6, point.size = 2, centered = 'all') +
-  theme_bw() + 
+  theme_bw() +
+  scale_y_continuous(breaks=c(0, 2, 4, 6, 8, 10), limits = c(0, 10)) +
   labs(x = 'Mean summer rainy season brightness', y = 'Number of surviving offspring') +
   theme(panel.border = element_rect(colour = "black", fill = NA, linewidth = 1), 
         panel.grid.major = element_blank(), text=element_text(color="black"),
