@@ -607,6 +607,7 @@ effect_plot(nb4, pred = mean.tempk, interval = TRUE, plot.points = TRUE, partial
         axis.title=element_text(size=12))
 dev.off()
 
+
 ## Summer rainy
 sub <- env.fem.ann[env.fem.ann$type == 2 & env.fem.ann$season == 1,]        ## subset to summer rainy season summary stats
 nb4 <- glm.nb(num.surv ~ mean.b, 
@@ -615,6 +616,19 @@ summary(nb4) ## p = 0.04
 
 plot(sub$mean.b, sub$num.off, pch = 19, col = alpha(b.col, 0.8), xlab = 'Mean summer rainy season brightness',
      ylab = 'Number of surviving offspring')
+
+pdf('/Users/Avril/Desktop/summer_brightness_v_numsurv_effects.pdf', width = 3, height = 4)
+effect_plot(nb4, pred = mean.b, interval = TRUE, plot.points = TRUE, partial.residuals = FALSE, 
+            colors = b.col, point.alpha = 0.6, centered = 'all') +
+  theme_bw() + 
+  labs(x = 'Mean summer rainy season brightness', y = 'Number of surviving offspring') +
+  theme(panel.border = element_rect(colour = "black", fill = NA, linewidth = 1), 
+        panel.grid.major = element_blank(), text=element_text(color="black"),
+        panel.grid.minor = element_blank(), 
+        # axis.line = element_line(colour = "black"),
+        axis.text=element_text(size=12, colour = 'black'),
+        axis.title=element_text(size=12))
+dev.off()
 
 ## Winter rainy
 sub <- env.fem.ann[env.fem.ann$type == 2 & env.fem.ann$season == 2,]        ## subset to winter rainy season summary stats
