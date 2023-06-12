@@ -397,6 +397,7 @@ logLik(p3)
 ## NB GLM
 nb1 <- glm.nb(num.off ~ mean.g + mean.b + mean.w + mean.tempk, 
           data = sub)
+
 summary(nb1) ## remove mean.w
 
 E2 <- resid(nb1, type = "pearson")
@@ -617,7 +618,7 @@ sub$mean.tempk <- sub$mean.tempk - 273.15
 nb3 <- glm.nb(num.off ~ mean.b + mean.tempk, 
               data = sub)
 summary(nb3)
-cor(sub$mean.b, sub$mean.tempk) ## predictors correlation coefficient = 0.036
+cor(sub$mean.b, sub$mean.tempk) ## predictors correlation coefficient = -0.042
 
 plot(sub$mean.b, sub$num.off, pch = 19, col = alpha(b.col, 0.8), xlab = 'Mean annual brightness',
      ylab = 'Number of offspring')
@@ -633,6 +634,20 @@ effect_plot(nb3, pred = mean.tempk, interval = TRUE, plot.points = TRUE, partial
   theme_bw() + 
   scale_y_continuous(breaks=seq(0,10,2)) +
   labs(x = 'Mean annual surface temperature (deg C)', y = 'Number of offspring') +
+  theme(panel.border = element_rect(colour = "black", fill = NA, linewidth = 1), 
+        panel.grid.major = element_blank(), text=element_text(color="black"),
+        panel.grid.minor = element_blank(), 
+        # axis.line = element_line(colour = "black"),
+        axis.text=element_text(size=12, colour = 'black'),
+        axis.title=element_text(size=12))
+dev.off()
+
+pdf('/Users/Avril/Desktop/2_x_2_annual_brightness_v_numoff_effects.pdf', width = 4.5, height = 4.5)
+effect_plot(nb3, pred = mean.b, interval = TRUE, plot.points = TRUE, partial.residuals = FALSE, 
+            colors = b.col, point.alpha = 0.6, point.size = 2, centered = 'all') +
+  theme_bw() + 
+  labs(x = 'Mean annual brightness', y = 'Number of offspring') +
+  scale_y_continuous(breaks=c(0, 2, 4, 6, 8, 10)) +
   theme(panel.border = element_rect(colour = "black", fill = NA, linewidth = 1), 
         panel.grid.major = element_blank(), text=element_text(color="black"),
         panel.grid.minor = element_blank(), 
@@ -709,6 +724,20 @@ plot(sub$mean.b, sub$num.off, pch = 19, col = alpha(b.col, 0.8), xlab = 'Mean su
 #           col = alpha(w.col, 0.4))
 #   lines(new.x$wetness.mean, pred.vals[,1], col = w.col, lwd = 1.5)
 
+pdf('/Users/Avril/Desktop/2_x_2_summer_brightness_v_numoff_effects.pdf', width = 4.5, height = 4.5)
+effect_plot(nb4, pred = mean.b, interval = TRUE, plot.points = TRUE, partial.residuals = FALSE, 
+            colors = b.col, point.alpha = 0.6, point.size = 2, centered = 'all') +
+  theme_bw() + 
+  labs(x = 'Mean summer rainy season brightness', y = 'Number of offspring') +
+  scale_y_continuous(breaks=c(0, 2, 4, 6, 8, 10)) +
+  theme(panel.border = element_rect(colour = "black", fill = NA, linewidth = 1), 
+        panel.grid.major = element_blank(), text=element_text(color="black"),
+        panel.grid.minor = element_blank(), 
+        # axis.line = element_line(colour = "black"),
+        axis.text=element_text(size=12, colour = 'black'),
+        axis.title=element_text(size=12))
+dev.off()
+
 
 ##### >> Winter rainy #####
 sub <- env.fem.ann[env.fem.ann$type == 2 & env.fem.ann$season == 2,]        ## subset to winter rainy season summary stats
@@ -716,7 +745,7 @@ sub$mean.tempk <- sub$mean.tempk - 273.15
 nb3 <- glm.nb(num.off ~ mean.w + mean.tempk, 
               data = sub)
 summary(nb3)
-cor(sub$mean.w, sub$mean.tempk) ## predictors correlation coefficient = 0.09
+cor(sub$mean.w, sub$mean.tempk) ## predictors correlation coefficient = 0.03
 
 plot(sub$mean.w, sub$num.off, pch = 19, col = alpha(w.col, 0.8), xlab = 'Mean winter rainy season wetness',
      ylab = 'Number of offspring')
@@ -737,5 +766,17 @@ effect_plot(nb3, pred = mean.tempk, interval = TRUE, plot.points = TRUE, partial
         axis.title=element_text(size=12))
 dev.off()
 
-# dev.off()
+pdf('/Users/Avril/Desktop/2_x_2_winter_wetness_v_numoff_effects.pdf', width = 4.5, height = 4.5)
+effect_plot(nb3, pred = mean.w, interval = TRUE, plot.points = TRUE, partial.residuals = FALSE, 
+            colors = w.col, point.alpha = 0.6, point.size = 2, centered = 'all') +
+  theme_bw() + 
+  labs(x = 'Mean winter rainy season wetness', y = 'Number of offspring') +
+  scale_y_continuous(breaks=c(0, 2, 4, 6, 8, 10)) +
+  theme(panel.border = element_rect(colour = "black", fill = NA, linewidth = 1), 
+        panel.grid.major = element_blank(), text=element_text(color="black"),
+        panel.grid.minor = element_blank(), 
+        # axis.line = element_line(colour = "black"),
+        axis.text=element_text(size=12, colour = 'black'),
+        axis.title=element_text(size=12))
+dev.off()
 
