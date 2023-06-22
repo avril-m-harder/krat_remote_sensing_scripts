@@ -616,7 +616,7 @@ sd1 <- sd(sub[sub$cat.surv == 0, 'mean.tempk'], na.rm = TRUE)/sqrt(n)*1.96
 m2 <- mean(sub[sub$cat.surv == 1, 'mean.tempk'], na.rm = TRUE)
 sd2 <- sd(sub[sub$cat.surv == 1, 'mean.tempk'], na.rm = TRUE)/sqrt(n)*1.96
 
-pdf('/Users/Avril/Desktop/t-test_catnumoff_v_annual_surfacetemp.pdf', width = 5, height = 6)
+pdf('/Users/Avril/Desktop/t-test_catnumsurv_v_annual_surfacetemp.pdf', width = 5, height = 6)
 plot(jitter(sub$cat.surv, factor = 0.8), sub$mean.tempk, 
      # pch = 19, col = alpha(t.col, 0.5),  ## with points() below, toggle based on whether points should be in back- or foreground
      pch = 19, col = 'transparent',
@@ -679,7 +679,7 @@ sd1 <- sd(sub[sub$cat.surv == 0, 'mean.b'], na.rm = TRUE)/sqrt(n)*1.96
 m2 <- mean(sub[sub$cat.surv == 1, 'mean.b'], na.rm = TRUE)
 sd2 <- sd(sub[sub$cat.surv == 1, 'mean.b'], na.rm = TRUE)/sqrt(n)*1.96
 
-pdf('/Users/Avril/Desktop/t-test_catnumoff_v_summer_brightness.pdf', width = 5, height = 6)
+pdf('/Users/Avril/Desktop/t-test_catnumsurv_v_summer_brightness.pdf', width = 5, height = 6)
 plot(jitter(sub$cat.surv, factor = 0.8), sub$mean.b, 
      # pch = 19, col = alpha(b.col, 0.5),  ## with points() below, toggle based on whether points should be in back- or foreground
      pch = 19, col = 'transparent',

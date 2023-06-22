@@ -628,7 +628,7 @@ plot(sub$mean.tempk, sub$num.off, pch = 19, col = alpha(t.col, 0.8), xlab = 'Mea
 ## vignette: https://cran.r-project.org/web/packages/jtools/vignettes/effect_plot.html
 ## centered can == 'all', 'none'; 'all' means that values for other predictor variable are set to the mean;
 ## 'none' bases all predictions on other variables being set to 0
-pdf('/Users/Avril/Desktop/annual_surftemp_v_numoff_effects.pdf', width = 3, height = 4)
+# pdf('/Users/Avril/Desktop/annual_surftemp_v_numoff_effects.pdf', width = 3, height = 4)
 effect_plot(nb3, pred = mean.tempk, interval = TRUE, plot.points = TRUE, partial.residuals = FALSE, 
             colors = t.col, point.alpha = 0.6, centered = 'all') +
   theme_bw() + 
@@ -640,9 +640,9 @@ effect_plot(nb3, pred = mean.tempk, interval = TRUE, plot.points = TRUE, partial
         # axis.line = element_line(colour = "black"),
         axis.text=element_text(size=12, colour = 'black'),
         axis.title=element_text(size=12))
-dev.off()
+# dev.off()
 
-pdf('/Users/Avril/Desktop/2_x_2_annual_brightness_v_numoff_effects.pdf', width = 4.5, height = 4.5)
+# pdf('/Users/Avril/Desktop/2_x_2_annual_brightness_v_numoff_effects.pdf', width = 4.5, height = 4.5)
 effect_plot(nb3, pred = mean.b, interval = TRUE, plot.points = TRUE, partial.residuals = FALSE, 
             colors = b.col, point.alpha = 0.6, point.size = 2, centered = 'all') +
   theme_bw() + 
@@ -654,7 +654,85 @@ effect_plot(nb3, pred = mean.b, interval = TRUE, plot.points = TRUE, partial.res
         # axis.line = element_line(colour = "black"),
         axis.text=element_text(size=12, colour = 'black'),
         axis.title=element_text(size=12))
+# dev.off()
+
+## t-test for <= 1 vs. >1 surviving offspring, surface temperature
+sub[sub$num.off <= 2, 'cat.surv'] <- 0
+sub[sub$num.off > 2, 'cat.surv'] <- 1
+n <- nrow(sub[!is.na(sub$mean.tempk),])
+m1 <- mean(sub[sub$cat.surv == 0, 'mean.tempk'], na.rm = TRUE)
+sd1 <- sd(sub[sub$cat.surv == 0, 'mean.tempk'], na.rm = TRUE)/sqrt(n)*1.96
+m2 <- mean(sub[sub$cat.surv == 1, 'mean.tempk'], na.rm = TRUE)
+sd2 <- sd(sub[sub$cat.surv == 1, 'mean.tempk'], na.rm = TRUE)/sqrt(n)*1.96
+
+pdf('/Users/Avril/Desktop/t-test_catnumoff_v_annual_surfacetemp.pdf', width = 5, height = 6)
+plot(jitter(sub$cat.surv, factor = 0.8), sub$mean.tempk, 
+     # pch = 19, col = alpha(b.col, 0.5),  ## with points() below, toggle based on whether points should be in back- or foreground
+     pch = 19, col = 'transparent',
+     xlim = c(-0.4, 1.4),
+     xlab = 'Number of offspring',
+     ylab = 'Mean annual surface temperature (deg C)', xaxt = 'n')
+  axis(1, at = c(0,1), labels = c('<= 1','> 1'))
+  lines(x = c(-0.2, 0.2), 
+        y = c(m1, m1),
+        col = t.col, lwd = 3)
+  polygon(x = c(-0.15, 0.15, 0.15, -0.15),
+          y = c(m1-sd1, m1-sd1, m1+sd1, m1+sd1),
+          border = NA, col = alpha(t.col, 0.6))
+  lines(x = c(0.8, 1.2), 
+        y = c(m2, m2),
+        col = t.col, lwd = 3)
+  polygon(x = c(0.85, 1.15, 1.15, 0.85),
+          y = c(m2-sd2, m2-sd2, m2+sd2, m2+sd2),
+          border = NA, col = alpha(t.col, 0.6))
+  points(jitter(sub$cat.surv, factor = 0.8), sub$mean.tempk, 
+         pch = 19, col = alpha(t.col, 0.5), cex = 0.75)
 dev.off()
+
+shapiro.test(sub[sub$cat.surv == 0, 'mean.tempk']) ## neither normally distributed
+shapiro.test(sub[sub$cat.surv == 1, 'mean.tempk']) 
+bartlett.test(sub$mean.tempk ~ sub$cat.surv) ## equal variances, p > 0.05
+t.test(sub[sub$cat.surv == 0, 'mean.tempk'], sub[sub$cat.surv == 1, 'mean.tempk'],
+       paired = FALSE, var.equal = FALSE) ## p = 0.2222, not sig different
+
+## t-test for <=1 vs. >1 surviving offspring, brightness
+sub[sub$num.off <= 1, 'cat.surv'] <- 0
+sub[sub$num.off > 1, 'cat.surv'] <- 1
+n <- nrow(sub[!is.na(sub$mean.b),])
+m1 <- mean(sub[sub$cat.surv == 0, 'mean.b'], na.rm = TRUE)
+sd1 <- sd(sub[sub$cat.surv == 0, 'mean.b'], na.rm = TRUE)/sqrt(n)*1.96
+m2 <- mean(sub[sub$cat.surv == 1, 'mean.b'], na.rm = TRUE)
+sd2 <- sd(sub[sub$cat.surv == 1, 'mean.b'], na.rm = TRUE)/sqrt(n)*1.96
+
+pdf('/Users/Avril/Desktop/t-test_catnumoff_v_annual_brightness.pdf', width = 5, height = 6)
+plot(jitter(sub$cat.surv, factor = 0.8), sub$mean.b, 
+     # pch = 19, col = alpha(b.col, 0.5),  ## with points() below, toggle based on whether points should be in back- or foreground
+     pch = 19, col = 'transparent',
+     xlim = c(-0.4, 1.4),
+     xlab = 'Number of offspring',
+     ylab = 'Mean annual brightness', xaxt = 'n')
+  axis(1, at = c(0,1), labels = c('0','> 0'))
+  lines(x = c(-0.2, 0.2), 
+        y = c(m1, m1),
+        col = b.col, lwd = 3)
+  polygon(x = c(-0.15, 0.15, 0.15, -0.15),
+          y = c(m1-sd1, m1-sd1, m1+sd1, m1+sd1),
+          border = NA, col = alpha(b.col, 0.6))
+  lines(x = c(0.8, 1.2), 
+        y = c(m2, m2),
+        col = b.col, lwd = 3)
+  polygon(x = c(0.85, 1.15, 1.15, 0.85),
+          y = c(m2-sd2, m2-sd2, m2+sd2, m2+sd2),
+          border = NA, col = alpha(b.col, 0.6))
+  points(jitter(sub$cat.surv, factor = 0.8), sub$mean.b, 
+         pch = 19, col = alpha(b.col, 0.5), cex = 0.75)
+dev.off()
+
+shapiro.test(sub[sub$cat.surv == 0, 'mean.b']) ## both normally distributed
+shapiro.test(sub[sub$cat.surv == 1, 'mean.b']) 
+bartlett.test(sub$mean.b ~ sub$cat.surv) ## p > 0.05, equal variances
+t.test(sub[sub$cat.surv == 0, 'mean.b'], sub[sub$cat.surv == 1, 'mean.b'],
+       paired = FALSE, var.equal = TRUE) ## p = 0.006836, sig different
 
 ## check for density-dependent effects
 OUT <- NULL
@@ -724,7 +802,7 @@ plot(sub$mean.b, sub$num.off, pch = 19, col = alpha(b.col, 0.8), xlab = 'Mean su
 #           col = alpha(w.col, 0.4))
 #   lines(new.x$wetness.mean, pred.vals[,1], col = w.col, lwd = 1.5)
 
-pdf('/Users/Avril/Desktop/2_x_2_summer_brightness_v_numoff_effects.pdf', width = 4.5, height = 4.5)
+# pdf('/Users/Avril/Desktop/2_x_2_summer_brightness_v_numoff_effects.pdf', width = 4.5, height = 4.5)
 effect_plot(nb4, pred = mean.b, interval = TRUE, plot.points = TRUE, partial.residuals = FALSE, 
             colors = b.col, point.alpha = 0.6, point.size = 2, centered = 'all') +
   theme_bw() + 
@@ -736,7 +814,46 @@ effect_plot(nb4, pred = mean.b, interval = TRUE, plot.points = TRUE, partial.res
         # axis.line = element_line(colour = "black"),
         axis.text=element_text(size=12, colour = 'black'),
         axis.title=element_text(size=12))
+# dev.off()
+
+## t-test for 0 vs. >0 surviving offspring, brightness
+sub[sub$num.surv == 0, 'cat.surv'] <- 0
+sub[sub$num.surv > 0, 'cat.surv'] <- 1
+n <- nrow(sub[!is.na(sub$mean.b),])
+m1 <- mean(sub[sub$cat.surv == 0, 'mean.b'], na.rm = TRUE)
+sd1 <- sd(sub[sub$cat.surv == 0, 'mean.b'], na.rm = TRUE)/sqrt(n)*1.96
+m2 <- mean(sub[sub$cat.surv == 1, 'mean.b'], na.rm = TRUE)
+sd2 <- sd(sub[sub$cat.surv == 1, 'mean.b'], na.rm = TRUE)/sqrt(n)*1.96
+
+pdf('/Users/Avril/Desktop/t-test_catnumoff_v_annual_brightness.pdf', width = 5, height = 6)
+plot(jitter(sub$cat.surv, factor = 0.8), sub$mean.b, 
+     # pch = 19, col = alpha(b.col, 0.5),  ## with points() below, toggle based on whether points should be in back- or foreground
+     pch = 19, col = 'transparent',
+     xlim = c(-0.4, 1.4),
+     xlab = 'Number of offspring',
+     ylab = 'Mean annual brightness', xaxt = 'n')
+axis(1, at = c(0,1), labels = c('0','> 0'))
+lines(x = c(-0.2, 0.2), 
+      y = c(m1, m1),
+      col = b.col, lwd = 3)
+polygon(x = c(-0.15, 0.15, 0.15, -0.15),
+        y = c(m1-sd1, m1-sd1, m1+sd1, m1+sd1),
+        border = NA, col = alpha(b.col, 0.6))
+lines(x = c(0.8, 1.2), 
+      y = c(m2, m2),
+      col = b.col, lwd = 3)
+polygon(x = c(0.85, 1.15, 1.15, 0.85),
+        y = c(m2-sd2, m2-sd2, m2+sd2, m2+sd2),
+        border = NA, col = alpha(b.col, 0.6))
+points(jitter(sub$cat.surv, factor = 0.8), sub$mean.b, 
+       pch = 19, col = alpha(b.col, 0.5), cex = 0.75)
 dev.off()
+
+shapiro.test(sub[sub$cat.surv == 0, 'mean.b']) ## both normally distributed
+shapiro.test(sub[sub$cat.surv == 1, 'mean.b']) 
+bartlett.test(sub$mean.b ~ sub$cat.surv) ## p > 0.05, equal variances
+t.test(sub[sub$cat.surv == 0, 'mean.b'], sub[sub$cat.surv == 1, 'mean.b'],
+       paired = FALSE, var.equal = TRUE) ## p = 0.01966, sig different
 
 
 ##### >> Winter rainy #####

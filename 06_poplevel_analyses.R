@@ -661,7 +661,7 @@ plot(density(OUT[,3]))
   abline(v = quantile(OUT[,3], probs = c((lev/2), 1-(lev/2)))[2], col = 'blue')
   abline(v = comb.wet, col = 'red')
   nrow(OUT[OUT[,3] >= comb.wet,])/nrow(OUT) ## 0.15
-## shit. doesn't look good for the combined model.
+## doesn't look good for the combined model.
   
 ## try it for the separate models, then.
 ## brightness
