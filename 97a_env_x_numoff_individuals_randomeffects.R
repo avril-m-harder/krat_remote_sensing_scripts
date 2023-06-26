@@ -287,396 +287,138 @@ dev.off()
 # dev.off()
 
 ##### Check correlations among annual, summer, winter values for wetness, brightness, and temp.k #####
-pdf('/Users/Avril/Desktop/cross_season_correlations_numoff.pdf', width = 6, height = 5)
-col <- 1
-for(c in c(9,8,10)){
-  sub <- env.fem.ann[,c(1,2,5,6,c)]
-  sub$comb.id <- paste0(sub$id,'-',sub$year)
-  
-  if(c == 10){
-    sub[,5] <- sub[,5]-273.15
-  }
-  
-  OUT <- NULL
-  for(i in unique(sub$comb.id)){
-    save <- c(sub[sub$comb.id == i & sub$type == 1, 5], sub[sub$comb.id == i & sub$type == 2 & sub$season == 1, 5])
-    OUT <- rbind(OUT, save)
-  }
-  OUT <- OUT[complete.cases(OUT),]
-  plot(OUT[,1], OUT[,2], pch = 19, col = alpha(cols[col], 0.4),
-       main = colnames(env.fem.ann)[c], xlab = 'Annual', ylab = 'Summer rainy season')
-  # mod <- lm(OUT[,2] ~ OUT[,1])
-  # abline(mod, lty = 2, lwd = 2, col = cols[col])
-  # legend('topleft', legend = paste0('p = ',round(summary(mod)$coefficients[2,4], digits = 3),
-  #                                   '\nadj. R2 = ',round(summary(mod)$adj.r.squared, digits = 3),
-  #                                   '\ncorr coeff = ',round(cor(OUT[,1], OUT[,2]), digits = 3)),
-  #        bty = 'n')
-  legend('topleft', legend = paste0('corr coeff = ',round(cor(OUT[,1], OUT[,2]), digits = 3)),
-         bty = 'n')
-  
-  temp <- sub[sub$type == 2 & sub$season == 2,]
-  temp <- temp[!is.na(temp[,5]), 'comb.id']
-  OUT <- NULL
-  for(i in unique(temp)){
-    save <- c(sub[sub$comb.id == i & sub$type == 1, 5], sub[sub$comb.id == i & sub$type == 2 & sub$season == 2, 5])
-    OUT <- rbind(OUT, save)
-  }
-  OUT <- OUT[complete.cases(OUT),]
-  plot(OUT[,1], OUT[,2], pch = 19, col = alpha(cols[col], 0.4),
-       main = colnames(env.fem.ann)[c], xlab = 'Annual', ylab = 'Winter rainy season')
-  # mod <- lm(OUT[,2] ~ OUT[,1])
-  # abline(mod, lty = 2, lwd = 2, col = cols[col])
-  # legend('topleft', legend = paste0('p = ',round(summary(mod)$coefficients[2,4], digits = 3),
-  #                                   '\nadj. R2 = ',round(summary(mod)$adj.r.squared, digits = 3),
-  #                                   '\ncorr coeff = ',round(cor(OUT[,1], OUT[,2]), digits = 3)),
-  #        bty = 'n')
-  legend('topleft', legend = paste0('corr coeff = ',round(cor(OUT[,1], OUT[,2]), digits = 3)),
-         bty = 'n')
-  
-  temp <- sub[sub$type == 2 & sub$season == 2,]
-  temp <- temp[!is.na(temp[,5]), 'comb.id']
-  OUT <- NULL
-  for(i in unique(temp)){
-    save <- c(sub[sub$comb.id == i & sub$type == 2 & sub$season == 1, 5], sub[sub$comb.id == i & sub$type == 2 & sub$season == 2, 5])
-    OUT <- rbind(OUT, save)
-  }
-  OUT <- OUT[complete.cases(OUT),]
-  plot(OUT[,1], OUT[,2], pch = 19, col = alpha(cols[col], 0.4), 
-       main = colnames(env.fem.ann)[c], xlab = 'Summer rainy season', ylab = 'Winter rainy season')
-  # mod <- lm(OUT[,2] ~ OUT[,1])
-  # abline(mod, lty = 2, lwd = 2, col = cols[col])
-  # legend('topleft', legend = paste0('p = ',round(summary(mod)$coefficients[2,4], digits = 3),
-  #                                   '\nadj. R2 = ',round(summary(mod)$adj.r.squared, digits = 3),
-  #                                   '\ncorr coeff = ',round(cor(OUT[,1], OUT[,2]), digits = 3)),
-  #        bty = 'n')
-  legend('topleft', legend = paste0('corr coeff = ',round(cor(OUT[,1], OUT[,2]), digits = 3)),
-         bty = 'n')
-  col <- col+1
-}
-dev.off()
+# pdf('/Users/Avril/Desktop/cross_season_correlations_numoff.pdf', width = 6, height = 5)
+# col <- 1
+# for(c in c(9,8,10)){
+#   sub <- env.fem.ann[,c(1,2,5,6,c)]
+#   sub$comb.id <- paste0(sub$id,'-',sub$year)
+#   
+#   if(c == 10){
+#     sub[,5] <- sub[,5]-273.15
+#   }
+#   
+#   OUT <- NULL
+#   for(i in unique(sub$comb.id)){
+#     save <- c(sub[sub$comb.id == i & sub$type == 1, 5], sub[sub$comb.id == i & sub$type == 2 & sub$season == 1, 5])
+#     OUT <- rbind(OUT, save)
+#   }
+#   OUT <- OUT[complete.cases(OUT),]
+#   plot(OUT[,1], OUT[,2], pch = 19, col = alpha(cols[col], 0.4),
+#        main = colnames(env.fem.ann)[c], xlab = 'Annual', ylab = 'Summer rainy season')
+#   # mod <- lm(OUT[,2] ~ OUT[,1])
+#   # abline(mod, lty = 2, lwd = 2, col = cols[col])
+#   # legend('topleft', legend = paste0('p = ',round(summary(mod)$coefficients[2,4], digits = 3),
+#   #                                   '\nadj. R2 = ',round(summary(mod)$adj.r.squared, digits = 3),
+#   #                                   '\ncorr coeff = ',round(cor(OUT[,1], OUT[,2]), digits = 3)),
+#   #        bty = 'n')
+#   legend('topleft', legend = paste0('corr coeff = ',round(cor(OUT[,1], OUT[,2]), digits = 3)),
+#          bty = 'n')
+#   
+#   temp <- sub[sub$type == 2 & sub$season == 2,]
+#   temp <- temp[!is.na(temp[,5]), 'comb.id']
+#   OUT <- NULL
+#   for(i in unique(temp)){
+#     save <- c(sub[sub$comb.id == i & sub$type == 1, 5], sub[sub$comb.id == i & sub$type == 2 & sub$season == 2, 5])
+#     OUT <- rbind(OUT, save)
+#   }
+#   OUT <- OUT[complete.cases(OUT),]
+#   plot(OUT[,1], OUT[,2], pch = 19, col = alpha(cols[col], 0.4),
+#        main = colnames(env.fem.ann)[c], xlab = 'Annual', ylab = 'Winter rainy season')
+#   # mod <- lm(OUT[,2] ~ OUT[,1])
+#   # abline(mod, lty = 2, lwd = 2, col = cols[col])
+#   # legend('topleft', legend = paste0('p = ',round(summary(mod)$coefficients[2,4], digits = 3),
+#   #                                   '\nadj. R2 = ',round(summary(mod)$adj.r.squared, digits = 3),
+#   #                                   '\ncorr coeff = ',round(cor(OUT[,1], OUT[,2]), digits = 3)),
+#   #        bty = 'n')
+#   legend('topleft', legend = paste0('corr coeff = ',round(cor(OUT[,1], OUT[,2]), digits = 3)),
+#          bty = 'n')
+#   
+#   temp <- sub[sub$type == 2 & sub$season == 2,]
+#   temp <- temp[!is.na(temp[,5]), 'comb.id']
+#   OUT <- NULL
+#   for(i in unique(temp)){
+#     save <- c(sub[sub$comb.id == i & sub$type == 2 & sub$season == 1, 5], sub[sub$comb.id == i & sub$type == 2 & sub$season == 2, 5])
+#     OUT <- rbind(OUT, save)
+#   }
+#   OUT <- OUT[complete.cases(OUT),]
+#   plot(OUT[,1], OUT[,2], pch = 19, col = alpha(cols[col], 0.4), 
+#        main = colnames(env.fem.ann)[c], xlab = 'Summer rainy season', ylab = 'Winter rainy season')
+#   # mod <- lm(OUT[,2] ~ OUT[,1])
+#   # abline(mod, lty = 2, lwd = 2, col = cols[col])
+#   # legend('topleft', legend = paste0('p = ',round(summary(mod)$coefficients[2,4], digits = 3),
+#   #                                   '\nadj. R2 = ',round(summary(mod)$adj.r.squared, digits = 3),
+#   #                                   '\ncorr coeff = ',round(cor(OUT[,1], OUT[,2]), digits = 3)),
+#   #        bty = 'n')
+#   legend('topleft', legend = paste0('corr coeff = ',round(cor(OUT[,1], OUT[,2]), digits = 3)),
+#          bty = 'n')
+#   col <- col+1
+# }
+# dev.off()
   
 
-##### Construct backwards stepwise regressions and conduct LRTs (number of offspring) #####
+##### Construct backwards stepwise regressions with female ID as a random effect (number of offspring) #####
+library(glmmTMB)
 ##### >> Annual averages / totals #####
 sub <- env.fem.ann[env.fem.ann$type == 1,]        ## subset to annual summary stats
 sub$id <- as.factor(sub$id)
 
 ## NB GLM + female ID as random effect
-nb1 <- glmer.nb(num.off ~ mean.g + mean.b + mean.w + mean.tempk + (1|id), 
-          data = sub,
-          nb.control = glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 10000000)))
-summary(nb1) ## remove mean.w
+tmb1 <- glmmTMB(num.off ~ mean.g + mean.b + mean.w + mean.tempk + (1|id), 
+                data = sub,
+                # ziformula = ~1,  ## running as zero-inflated NB really ramps up dispersion parameter
+                family = nbinom2)
+summary(tmb1) ## remove mean.w
 
-## never reaches convergence, no matter what I set maxfun to.
-install.packages('GLMMadaptive')
-library(GLMMadaptive)
+tmb2 <- glmmTMB(num.off ~ mean.g + mean.b + mean.tempk + (1|id), 
+                data = sub,
+                family = nbinom2)
+summary(tmb2) ## remove mean.g
 
-## trying a zero-inflated NB GLM
-nb1 <- GLMMadaptive::mixed_model(fixed = num.off ~ mean.g + mean.b + mean.w + mean.tempk,
-                                 random = ~1 | id,
-                                 data = sub,
-                                 family = zi.negative.binomial(),
-                                 zi_fixed = ~ 1, 
-                                 zi_random = ~ 1 | id,
-                                 iter_EM = 0)
+tmb3 <- glmmTMB(num.off ~ mean.b + mean.tempk + (1|id), 
+                data = sub,
+                family = nbinom2)
+summary(tmb3) ## same final set of predictor variables as without the inclusion of female ID as random effect
 
-## okay, too many variables, maybe just try a rando for the final model
-nb3 <- glmer.nb(num.off ~ mean.b + mean.tempk + (1|id), 
-              data = sub,
-              nb.control = glmerControl(optimizer = "bobyqa", optCtrl = list(maxfun = 10000000)))
-
-nb3 <- GLMMadaptive::mixed_model(fixed = num.off ~ mean.b + mean.tempk,
-                                 random = ~1 | id,
-                                 data = sub,
-                                 family = zi.negative.binomial(),
-                                 zi_fixed = ~ 1, 
-                                 zi_random = ~ 1 | id,
-                                 iter_EM = 0)
 
 ##### >> Summer rainy season averages / totals #####
 sub <- env.fem.ann[env.fem.ann$type == 2 & env.fem.ann$season == 1,]        ## subset to summer rainy season summary stats
 
-## Poisson GLM
-p1 <- glm(num.off ~ mean.g + mean.b + mean.w + mean.tempk, 
-          family = 'poisson',
-          data = sub)
-summary(p1) ## remove mean.g
+## NB GLM + female ID as random effect
+tmb1 <- glmmTMB(num.off ~ mean.g + mean.b + mean.w + mean.tempk + (1|id), 
+                data = sub,
+                family = nbinom2)
+summary(tmb1) ## remove mean.g
 
-E2 <- resid(p1, type = "pearson")
-N  <- nrow(sub)
-p  <- length(coef(p1))   
-sum(E2^2) / (N - p)
-logLik(p1)
+tmb2 <- glmmTMB(num.off ~ mean.b + mean.w + mean.tempk + (1|id), 
+                data = sub,
+                family = nbinom2)
+summary(tmb2) ## remove mean.w
 
-p2 <- glm(num.off ~ mean.w + mean.b + mean.tempk, 
-          family = 'poisson',
-          data = sub)
-summary(p2) ## keeping mean.b, mean.w, and mean.tempk
+tmb3 <- glmmTMB(num.off ~ mean.b + mean.tempk + (1|id), 
+                data = sub,
+                family = nbinom2)
+summary(tmb3) ## remove mean.tempk
 
-E2 <- resid(p2, type = "pearson")
-N  <- nrow(sub)
-p  <- length(coef(p2))   
-sum(E2^2) / (N - p)
-logLik(p2)
-
-## NB GLM
-nb1 <- glm.nb(num.off ~ mean.g + mean.b + mean.w + mean.tempk, 
-              data = sub)
-summary(nb1) ## remove mean.g
-
-E2 <- resid(nb1, type = "pearson")
-N  <- nrow(sub)
-p  <- length(coef(nb1))   
-sum(E2^2) / (N - p)
-logLik(nb1)
-
-nb2 <- glm.nb(num.off ~ mean.w + mean.b + mean.tempk, 
-              data = sub)
-summary(nb2) ## remove mean.w
-
-E2 <- resid(nb2, type = "pearson")
-N  <- nrow(sub)
-p  <- length(coef(nb2))   
-sum(E2^2) / (N - p)
-logLik(nb2)
-
-nb3 <- glm.nb(num.off ~ mean.b + mean.tempk, 
-              data = sub)
-summary(nb3) ## remove mean.tempk
-
-E2 <- resid(nb3, type = "pearson")
-N  <- nrow(sub)
-p  <- length(coef(nb3))   
-sum(E2^2) / (N - p)
-logLik(nb3)
-
-nb4 <- glm.nb(num.off ~ mean.b, 
-              data = sub)
-summary(nb4) ## p = 0.0001
-
-E2 <- resid(nb4, type = "pearson")
-N  <- nrow(sub)
-p  <- length(coef(nb4))   
-sum(E2^2) / (N - p)
-logLik(nb4)
-
-lrtest(p2, nb4) ## neg binomial better (not sure if it works to compare different sets of predictors?)
-## also compare poisson and neg bin models with matching predictors
-p1 <- glm(num.off ~ mean.b, 
-                family = 'poisson',
-                data = sub)
-summary(p1)
-## check for over/underdispersion in the model
-E2 <- resid(p1, type = "pearson")
-N  <- nrow(sub)
-p  <- length(coef(p1))   
-sum(E2^2) / (N - p) ## 2.41 -- overdispersion
-
-nb1 <- glm.nb(num.off ~ mean.b,
-              data = sub)
-lrtest(p1, nb1) 
+tmb4 <- glmmTMB(num.off ~ mean.b + (1|id), 
+                data = sub,
+                family = nbinom2)
+summary(tmb4) ## same as result without random effect
 
 ##### >> Winter rainy season averages / totals #####
 sub <- env.fem.ann[env.fem.ann$type == 2 & env.fem.ann$season == 2,]        ## subset to winter rainy season summary stats
 
-## Poisson GLM
-p1 <- glm(num.off ~ mean.g + mean.b + mean.w + mean.tempk, 
-          family = 'poisson',
-          data = sub)
-summary(p1) ## remove mean.g
+## NB GLM + female ID as random effect
+tmb1 <- glmmTMB(num.off ~ mean.g + mean.b + mean.w + mean.tempk + (1|id), 
+                data = sub,
+                family = nbinom2)
+summary(tmb1) ## remove mean.g
 
-E2 <- resid(p1, type = "pearson")
-N  <- nrow(sub)
-p  <- length(coef(p1))   
-sum(E2^2) / (N - p)
-logLik(p1)
+tmb2 <- glmmTMB(num.off ~ mean.b + mean.w + mean.tempk + (1|id), 
+                data = sub,
+                family = nbinom2)
+summary(tmb2) ## remove mean.b
 
-p2 <- glm(num.off ~ mean.w + mean.b + mean.tempk, 
-          family = 'poisson',
-          data = sub)
-summary(p2) ## remove mean.b
-
-E2 <- resid(p2, type = "pearson")
-N  <- nrow(sub)
-p  <- length(coef(p2))   
-sum(E2^2) / (N - p)
-logLik(p2)
-
-p3 <- glm(num.off ~ mean.w + mean.tempk, 
-          family = 'poisson',
-          data = sub)
-summary(p3)
-
-## check for over/underdispersion in the model
-E2 <- resid(p3, type = "pearson")
-N  <- nrow(sub)
-p  <- length(coef(p3))   
-sum(E2^2) / (N - p) ## 2.46 -- overdispersion
-logLik(p3)
-
-
-## NB GLM
-nb1 <- glm.nb(num.off ~ mean.g + mean.b + mean.w + mean.tempk, 
-              data = sub)
-summary(nb1) ## remove mean.g
-
-E2 <- resid(nb1, type = "pearson")
-N  <- nrow(sub)
-p  <- length(coef(nb1))   
-sum(E2^2) / (N - p) 
-logLik(nb1)
-
-nb2 <- glm.nb(num.off ~ mean.w + mean.b + mean.tempk, 
-              data = sub)
-summary(nb2) ## remove mean.b
-
-E2 <- resid(nb2, type = "pearson")
-N  <- nrow(sub)
-p  <- length(coef(nb2))   
-sum(E2^2) / (N - p) 
-logLik(nb2)
-
-nb3 <- glm.nb(num.off ~ mean.w + mean.tempk, 
-              data = sub)
-summary(nb3)
-
-## check for over/underdispersion in the model
-E2 <- resid(nb3, type = "pearson")
-N  <- nrow(sub)
-p  <- length(coef(nb3))   
-sum(E2^2) / (N - p) ## 0.95 -- slight underdispersion
-logLik(nb3)
-
-lrtest(p3, nb3)
-
-##### Final model for each time frame #####
-library(jtools)
-# pdf('/Users/Avril/Desktop/numoff_sig_predictors.pdf', width = 6, height = 5)
-##### >> Annual #####
-sub <- env.fem.ann[env.fem.ann$type == 1,]        ## subset to annual summary stats
-sub$mean.tempk <- sub$mean.tempk - 273.15
-nb3 <- glm.nb(num.off ~ mean.b + mean.tempk, 
-              data = sub)
-summary(nb3)
-cor(sub$mean.b, sub$mean.tempk) ## predictors correlation coefficient = 0.036
-
-plot(sub$mean.b, sub$num.off, pch = 19, col = alpha(b.col, 0.8), xlab = 'Mean annual brightness',
-     ylab = 'Number of offspring')
-plot(sub$mean.tempk, sub$num.off, pch = 19, col = alpha(t.col, 0.8), xlab = 'Mean annual surface temperature (deg C)',
-     ylab = 'Number of offspring')
-
-## vignette: https://cran.r-project.org/web/packages/jtools/vignettes/effect_plot.html
-## centered can == 'all', 'none'; 'all' means that values for other predictor variable are set to the mean;
-## 'none' bases all predictions on other variables being set to 0
-pdf('/Users/Avril/Desktop/annual_surftemp_v_numoff_effects.pdf', width = 3, height = 4)
-effect_plot(nb3, pred = mean.tempk, interval = TRUE, plot.points = TRUE, partial.residuals = FALSE, 
-            colors = t.col, point.alpha = 0.6, centered = 'all') +
-  theme_bw() + 
-  scale_y_continuous(breaks=seq(0,10,2)) +
-  labs(x = 'Mean annual surface temperature (deg C)', y = 'Number of offspring') +
-  theme(panel.border = element_rect(colour = "black", fill = NA, linewidth = 1), 
-        panel.grid.major = element_blank(), text=element_text(color="black"),
-        panel.grid.minor = element_blank(), 
-        # axis.line = element_line(colour = "black"),
-        axis.text=element_text(size=12, colour = 'black'),
-        axis.title=element_text(size=12))
-dev.off()
-
-## check for density-dependent effects
-OUT <- NULL
-for(y in sort(unique(sub$year))){
-  fs <- length(unique(sub[sub$year == y, 'id']))
-  save <- c(y, fs)
-  OUT <- rbind(OUT, save)
-}
-
-pdf('/Users/Avril/Desktop/offspring_by_numadultfemales.pdf', width = 6, height = 5)
-OUT3 <- NULL
-plot(0,0, xlim = c(min(OUT[,2]), max(OUT[,2])), ylim = c(0, 10), xlab = 'Number of reproductive females',
-     ylab = 'Number of offspring (by individual)')
-  for(r in 1:nrow(sub)){
-    points(OUT[OUT[,1] == sub$year[r], 2], sub$num.off[r], col = alpha('black', 0.3), pch = 19)
-    save <- c(OUT[OUT[,1] == sub$year[r], 2], sub$num.off[r])
-    OUT3 <- rbind(OUT3, save)
-  }
-  mod <- lm(OUT3[,2] ~ OUT3[,1])
-  summary(mod)
-  abline(mod, col = 'red')
-  text(30, 9, adj = c(0.5, 0.5), labels = 'p = 0.00015\nadj. R2 = 0.0168')
-  
-  
-OUT3 <- NULL
-plot(0,0, xlim = c(min(OUT[,2]), max(OUT[,2])), ylim = c(0, 10), xlab = 'Number of reproductive females',
-     ylab = 'Number of offspring (by individual)')
-  for(r in 1:nrow(sub)){
-    if(sub$num.off[r] > 0){
-      points(OUT[OUT[,1] == sub$year[r], 2], sub$num.surv[r], col = alpha('black', 0.3), pch = 19)
-      save <- c(OUT[OUT[,1] == sub$year[r], 2], sub$num.surv[r])
-      OUT3 <- rbind(OUT3, save)
-    }
-  }
-  mod <- lm(OUT3[,3] ~ OUT3[,1])
-  summary(mod)
-  abline(mod, col = 'red')
-  text(20, 9, adj = c(0.5, 0.5), labels = 'p = 0.0207\nadj. R2 = 0.0096')
-
-dev.off()
-
-
-
-##### >> Summer rainy #####
-sub <- env.fem.ann[env.fem.ann$type == 2 & env.fem.ann$season == 1,]        ## subset to summer rainy season summary stats
-nb4 <- glm.nb(num.off ~ mean.b, 
-              data = sub)
-summary(nb4)
-
-plot(sub$mean.b, sub$num.off, pch = 19, col = alpha(b.col, 0.8), xlab = 'Mean summer rainy season brightness',
-     ylab = 'Number of offspring')
-
-# plot(sub$mean.b, sub$num.off, pch = 19, col = alpha(b.col, 0.4))
-#   new.x <- as.data.frame(seq(min(sub$mean.b), max(sub$mean.b), length.out = 100))
-#   colnames(new.x) <- 'mean.b'
-#   pred.vals <- predict(nb4, new.x, se.fit = TRUE)
-#   low <- pred.vals$fit - pred.vals$se.fit*1.96
-#   upp <- pred.vals$fit + pred.vals$se.fit*1.96
-#   polygon(x = c(new.x$mean.b, sort(new.x$mean.b, decreasing = TRUE)),
-#           y = c(low, sort(upp, decreasing = TRUE)), border = NA,
-#           col = alpha(b.col, 0.4))
-#   lines(new.x$mean.b, pred.vals$fit, col = b.col, lwd = 2)
-#   
-#   ## CI polygon
-#   polygon(x = c(new.x$mean.b, sort(new.x$mean.b, decreasing = TRUE)),
-#           y = c(pred.vals[,2], sort(pred.vals[,3], decreasing = TRUE)), border = NA,
-#           col = alpha(w.col, 0.4))
-#   lines(new.x$wetness.mean, pred.vals[,1], col = w.col, lwd = 1.5)
-
-
-##### >> Winter rainy #####
-sub <- env.fem.ann[env.fem.ann$type == 2 & env.fem.ann$season == 2,]        ## subset to winter rainy season summary stats
-sub$mean.tempk <- sub$mean.tempk - 273.15
-nb3 <- glm.nb(num.off ~ mean.w + mean.tempk, 
-              data = sub)
-summary(nb3)
-cor(sub$mean.w, sub$mean.tempk) ## predictors correlation coefficient = 0.09
-
-plot(sub$mean.w, sub$num.off, pch = 19, col = alpha(w.col, 0.8), xlab = 'Mean winter rainy season wetness',
-     ylab = 'Number of offspring')
-plot(sub$mean.tempk, sub$num.off, pch = 19, col = alpha(t.col, 0.8), xlab = 'Mean winter rainy season surface temperature (deg C)',
-     ylab = 'Number of offspring')
-
-pdf('/Users/Avril/Desktop/winter_surftemp_v_numoff_effects.pdf', width = 3, height = 4)
-effect_plot(nb3, pred = mean.tempk, interval = TRUE, plot.points = TRUE, partial.residuals = FALSE, 
-            colors = t.col, point.alpha = 0.6, centered = 'all') +
-  theme_bw() + 
-  scale_y_continuous(breaks=seq(0,10,2)) +
-  labs(x = 'Mean winter rainy season surface temperature (deg C)', y = 'Number of offspring') +
-  theme(panel.border = element_rect(colour = "black", fill = NA, linewidth = 1),
-        panel.grid.major = element_blank(), text=element_text(color="black"),
-        panel.grid.minor = element_blank(), 
-        # axis.line = element_line(colour = "black"),
-        axis.text=element_text(size=12, colour = 'black'),
-        axis.title=element_text(size=12))
-dev.off()
-
-# dev.off()
-
+tmb3 <- glmmTMB(num.off ~ mean.w + mean.tempk + (1|id), 
+                data = sub,
+                family = nbinom2)
+summary(tmb3) ## same as result without random effect
