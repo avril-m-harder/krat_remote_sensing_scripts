@@ -263,73 +263,73 @@ env.fem.ann <- read.csv('/Users/Avril/Documents/krat_remote_sensing/intermediate
 
 
 ##### Check correlations among annual, summer, winter values for wetness, brightness, and temp.k #####
-pdf('/Users/Avril/Desktop/cross_season_correlations_numsurv.pdf', width = 6, height = 5)
-col <- 1
-for(c in c(10,9,11)){
-  sub <- env.fem.ann[,c(1,2,6,7,c)]
-  sub$comb.id <- paste0(sub$id,'-',sub$year)
-  
-  if(c == 11){
-    sub[,5] <- sub[,5]-273.15
-  }
-  
-  OUT <- NULL
-  for(i in unique(sub$comb.id)){
-    save <- c(sub[sub$comb.id == i & sub$type == 1, 5], sub[sub$comb.id == i & sub$type == 2 & sub$season == 1, 5])
-    OUT <- rbind(OUT, save)
-  }
-  OUT <- OUT[complete.cases(OUT),]
-  plot(OUT[,1], OUT[,2], pch = 19, col = alpha(cols[col], 0.4),
-       main = colnames(env.fem.ann)[c], xlab = 'Annual', ylab = 'Summer rainy season')
-  # mod <- lm(OUT[,2] ~ OUT[,1])
-  # abline(mod, lty = 2, lwd = 2, col = cols[col])
-  # legend('topleft', legend = paste0('p = ',round(summary(mod)$coefficients[2,4], digits = 3),
-  #                                   '\nadj. R2 = ',round(summary(mod)$adj.r.squared, digits = 3),
-  #                                   '\ncorr coeff = ',round(cor(OUT[,1], OUT[,2]), digits = 3)),
-  #        bty = 'n')
-  legend('topleft', legend = paste0('corr coeff = ',round(cor(OUT[,1], OUT[,2]), digits = 3)),
-         bty = 'n')
-  
-  temp <- sub[sub$type == 2 & sub$season == 2,]
-  temp <- temp[!is.na(temp[,5]), 'comb.id']
-  OUT <- NULL
-  for(i in unique(temp)){
-    save <- c(sub[sub$comb.id == i & sub$type == 1, 5], sub[sub$comb.id == i & sub$type == 2 & sub$season == 2, 5])
-    OUT <- rbind(OUT, save)
-  }
-  OUT <- OUT[complete.cases(OUT),]
-  plot(OUT[,1], OUT[,2], pch = 19, col = alpha(cols[col], 0.4),
-       main = colnames(env.fem.ann)[c], xlab = 'Annual', ylab = 'Winter rainy season')
-  # mod <- lm(OUT[,2] ~ OUT[,1])
-  # abline(mod, lty = 2, lwd = 2, col = cols[col])
-  # legend('topleft', legend = paste0('p = ',round(summary(mod)$coefficients[2,4], digits = 3),
-  #                                   '\nadj. R2 = ',round(summary(mod)$adj.r.squared, digits = 3),
-  #                                   '\ncorr coeff = ',round(cor(OUT[,1], OUT[,2]), digits = 3)),
-  #        bty = 'n')
-  legend('topleft', legend = paste0('corr coeff = ',round(cor(OUT[,1], OUT[,2]), digits = 3)),
-         bty = 'n')
-  
-  temp <- sub[sub$type == 2 & sub$season == 2,]
-  temp <- temp[!is.na(temp[,5]), 'comb.id']
-  OUT <- NULL
-  for(i in unique(temp)){
-    save <- c(sub[sub$comb.id == i & sub$type == 2 & sub$season == 1, 5], sub[sub$comb.id == i & sub$type == 2 & sub$season == 2, 5])
-    OUT <- rbind(OUT, save)
-  }
-  OUT <- OUT[complete.cases(OUT),]
-  plot(OUT[,1], OUT[,2], pch = 19, col = alpha(cols[col], 0.4), 
-       main = colnames(env.fem.ann)[c], xlab = 'Summer rainy season', ylab = 'Winter rainy season')
-  # mod <- lm(OUT[,2] ~ OUT[,1])
-  # abline(mod, lty = 2, lwd = 2, col = cols[col])
-  # legend('topleft', legend = paste0('p = ',round(summary(mod)$coefficients[2,4], digits = 3),
-  #                                   '\nadj. R2 = ',round(summary(mod)$adj.r.squared, digits = 3),
-  #                                   '\ncorr coeff = ',round(cor(OUT[,1], OUT[,2]), digits = 3)),
-  #        bty = 'n')
-  legend('topleft', legend = paste0('corr coeff = ',round(cor(OUT[,1], OUT[,2]), digits = 3)),
-         bty = 'n')
-  col <- col+1
-}
-dev.off()
+# pdf('/Users/Avril/Desktop/cross_season_correlations_numsurv.pdf', width = 6, height = 5)
+# col <- 1
+# for(c in c(10,9,11)){
+#   sub <- env.fem.ann[,c(1,2,6,7,c)]
+#   sub$comb.id <- paste0(sub$id,'-',sub$year)
+#   
+#   if(c == 11){
+#     sub[,5] <- sub[,5]-273.15
+#   }
+#   
+#   OUT <- NULL
+#   for(i in unique(sub$comb.id)){
+#     save <- c(sub[sub$comb.id == i & sub$type == 1, 5], sub[sub$comb.id == i & sub$type == 2 & sub$season == 1, 5])
+#     OUT <- rbind(OUT, save)
+#   }
+#   OUT <- OUT[complete.cases(OUT),]
+#   plot(OUT[,1], OUT[,2], pch = 19, col = alpha(cols[col], 0.4),
+#        main = colnames(env.fem.ann)[c], xlab = 'Annual', ylab = 'Summer rainy season')
+#   # mod <- lm(OUT[,2] ~ OUT[,1])
+#   # abline(mod, lty = 2, lwd = 2, col = cols[col])
+#   # legend('topleft', legend = paste0('p = ',round(summary(mod)$coefficients[2,4], digits = 3),
+#   #                                   '\nadj. R2 = ',round(summary(mod)$adj.r.squared, digits = 3),
+#   #                                   '\ncorr coeff = ',round(cor(OUT[,1], OUT[,2]), digits = 3)),
+#   #        bty = 'n')
+#   legend('topleft', legend = paste0('corr coeff = ',round(cor(OUT[,1], OUT[,2]), digits = 3)),
+#          bty = 'n')
+#   
+#   temp <- sub[sub$type == 2 & sub$season == 2,]
+#   temp <- temp[!is.na(temp[,5]), 'comb.id']
+#   OUT <- NULL
+#   for(i in unique(temp)){
+#     save <- c(sub[sub$comb.id == i & sub$type == 1, 5], sub[sub$comb.id == i & sub$type == 2 & sub$season == 2, 5])
+#     OUT <- rbind(OUT, save)
+#   }
+#   OUT <- OUT[complete.cases(OUT),]
+#   plot(OUT[,1], OUT[,2], pch = 19, col = alpha(cols[col], 0.4),
+#        main = colnames(env.fem.ann)[c], xlab = 'Annual', ylab = 'Winter rainy season')
+#   # mod <- lm(OUT[,2] ~ OUT[,1])
+#   # abline(mod, lty = 2, lwd = 2, col = cols[col])
+#   # legend('topleft', legend = paste0('p = ',round(summary(mod)$coefficients[2,4], digits = 3),
+#   #                                   '\nadj. R2 = ',round(summary(mod)$adj.r.squared, digits = 3),
+#   #                                   '\ncorr coeff = ',round(cor(OUT[,1], OUT[,2]), digits = 3)),
+#   #        bty = 'n')
+#   legend('topleft', legend = paste0('corr coeff = ',round(cor(OUT[,1], OUT[,2]), digits = 3)),
+#          bty = 'n')
+#   
+#   temp <- sub[sub$type == 2 & sub$season == 2,]
+#   temp <- temp[!is.na(temp[,5]), 'comb.id']
+#   OUT <- NULL
+#   for(i in unique(temp)){
+#     save <- c(sub[sub$comb.id == i & sub$type == 2 & sub$season == 1, 5], sub[sub$comb.id == i & sub$type == 2 & sub$season == 2, 5])
+#     OUT <- rbind(OUT, save)
+#   }
+#   OUT <- OUT[complete.cases(OUT),]
+#   plot(OUT[,1], OUT[,2], pch = 19, col = alpha(cols[col], 0.4), 
+#        main = colnames(env.fem.ann)[c], xlab = 'Summer rainy season', ylab = 'Winter rainy season')
+#   # mod <- lm(OUT[,2] ~ OUT[,1])
+#   # abline(mod, lty = 2, lwd = 2, col = cols[col])
+#   # legend('topleft', legend = paste0('p = ',round(summary(mod)$coefficients[2,4], digits = 3),
+#   #                                   '\nadj. R2 = ',round(summary(mod)$adj.r.squared, digits = 3),
+#   #                                   '\ncorr coeff = ',round(cor(OUT[,1], OUT[,2]), digits = 3)),
+#   #        bty = 'n')
+#   legend('topleft', legend = paste0('corr coeff = ',round(cor(OUT[,1], OUT[,2]), digits = 3)),
+#          bty = 'n')
+#   col <- col+1
+# }
+# dev.off()
 
 
 ##### Construct backwards stepwise regressions and conduct LRTs (proportion offspring surviving) #####
@@ -607,45 +607,6 @@ effect_plot(nb4, pred = mean.tempk, interval = TRUE, plot.points = TRUE, partial
         axis.title=element_text(size=12))
 # dev.off()
 
-## t-test for 0 vs. >0 surviving offspring
-sub[sub$num.surv == 0, 'cat.surv'] <- 0
-sub[sub$num.surv > 0, 'cat.surv'] <- 1
-n <- nrow(sub[!is.na(sub$mean.b),])
-m1 <- mean(sub[sub$cat.surv == 0, 'mean.tempk'], na.rm = TRUE)
-sd1 <- sd(sub[sub$cat.surv == 0, 'mean.tempk'], na.rm = TRUE)/sqrt(n)*1.96
-m2 <- mean(sub[sub$cat.surv == 1, 'mean.tempk'], na.rm = TRUE)
-sd2 <- sd(sub[sub$cat.surv == 1, 'mean.tempk'], na.rm = TRUE)/sqrt(n)*1.96
-
-pdf('/Users/Avril/Desktop/t-test_catnumsurv_v_annual_surfacetemp.pdf', width = 5, height = 6)
-plot(jitter(sub$cat.surv, factor = 0.8), sub$mean.tempk, 
-     # pch = 19, col = alpha(t.col, 0.5),  ## with points() below, toggle based on whether points should be in back- or foreground
-     pch = 19, col = 'transparent',
-     xlim = c(-0.4, 1.4),
-     xlab = 'Number of offspring surviving to age 1',
-     ylab = 'Mean annual surface temperature (deg C)', xaxt = 'n')
-  axis(1, at = c(0,1), labels = c('0','> 0'))
-  lines(x = c(-0.2, 0.2), 
-        y = c(m1, m1),
-        col = t.col, lwd = 3)
-  polygon(x = c(-0.15, 0.15, 0.15, -0.15),
-          y = c(m1-sd1, m1-sd1, m1+sd1, m1+sd1),
-          border = NA, col = alpha(t.col, 0.6))
-  lines(x = c(0.8, 1.2), 
-        y = c(m2, m2),
-        col = t.col, lwd = 3)
-  polygon(x = c(0.85, 1.15, 1.15, 0.85),
-          y = c(m2-sd2, m2-sd2, m2+sd2, m2+sd2),
-          border = NA, col = alpha(t.col, 0.6))
-  points(jitter(sub$cat.surv, factor = 0.8), sub$mean.tempk, 
-         pch = 19, col = alpha(t.col, 0.4), cex = 0.75)
-dev.off()
-  
-shapiro.test(sub[sub$cat.surv == 0, 'mean.tempk']) ## neither set is normally distributed, but sample sizes are large
-shapiro.test(sub[sub$cat.surv == 1, 'mean.tempk']) ## n = 182 and n = 233
-bartlett.test(sub$mean.tempk ~ sub$cat.surv) ## non-equal variances
-t.test(sub[sub$cat.surv == 0, 'mean.tempk'], sub[sub$cat.surv == 1, 'mean.tempk'],
-       paired = FALSE, var.equal = FALSE) ## p = 0.002154, sig different
-
 
 ## Summer rainy
 sub <- env.fem.ann[env.fem.ann$type == 2 & env.fem.ann$season == 1,]        ## subset to summer rainy season summary stats
@@ -670,48 +631,7 @@ effect_plot(nb4, pred = mean.b, interval = TRUE, plot.points = TRUE, partial.res
         axis.title=element_text(size=12))
 # dev.off()
 
-## t-test for 0 vs. >0 surviving offspring
-sub[sub$num.surv == 0, 'cat.surv'] <- 0
-sub[sub$num.surv > 0, 'cat.surv'] <- 1
-n <- nrow(sub[!is.na(sub$mean.b),])
-m1 <- mean(sub[sub$cat.surv == 0, 'mean.b'], na.rm = TRUE)
-sd1 <- sd(sub[sub$cat.surv == 0, 'mean.b'], na.rm = TRUE)/sqrt(n)*1.96
-m2 <- mean(sub[sub$cat.surv == 1, 'mean.b'], na.rm = TRUE)
-sd2 <- sd(sub[sub$cat.surv == 1, 'mean.b'], na.rm = TRUE)/sqrt(n)*1.96
-
-pdf('/Users/Avril/Desktop/t-test_catnumsurv_v_summer_brightness.pdf', width = 5, height = 6)
-plot(jitter(sub$cat.surv, factor = 0.8), sub$mean.b, 
-     # pch = 19, col = alpha(b.col, 0.5),  ## with points() below, toggle based on whether points should be in back- or foreground
-     pch = 19, col = 'transparent',
-     xlim = c(-0.4, 1.4),
-     xlab = 'Number of offspring surviving to age 1',
-     ylab = 'Mean summer rainy season brightness', xaxt = 'n')
-  axis(1, at = c(0,1), labels = c('0','> 0'))
-  lines(x = c(-0.2, 0.2), 
-        y = c(m1, m1),
-        col = b.col, lwd = 3)
-  polygon(x = c(-0.15, 0.15, 0.15, -0.15),
-          y = c(m1-sd1, m1-sd1, m1+sd1, m1+sd1),
-          border = NA, col = alpha(b.col, 0.6))
-  lines(x = c(0.8, 1.2), 
-        y = c(m2, m2),
-        col = b.col, lwd = 3)
-  polygon(x = c(0.85, 1.15, 1.15, 0.85),
-          y = c(m2-sd2, m2-sd2, m2+sd2, m2+sd2),
-          border = NA, col = alpha(b.col, 0.6))
-  points(jitter(sub$cat.surv, factor = 0.8), sub$mean.b, 
-         pch = 19, col = alpha(b.col, 0.5), cex = 0.75)
-dev.off()
-  
-shapiro.test(sub[sub$cat.surv == 0, 'mean.b']) ## check that data are normally distributed
-shapiro.test(sub[sub$cat.surv == 1, 'mean.b']) ## (both p > 0.05, good to go)
-bartlett.test(sub$mean.b ~ sub$cat.surv) ## check for equal variances, p > 0.05, good to go 
-t.test(sub[sub$cat.surv == 0, 'mean.b'], sub[sub$cat.surv == 1, 'mean.b'],
-       paired = FALSE, var.equal = TRUE) ## p = 0.040, sig different
 
 ## Winter rainy
 sub <- env.fem.ann[env.fem.ann$type == 2 & env.fem.ann$season == 2,]        ## subset to winter rainy season summary stats
-
-## no significant models for this season
-# dev.off()
 
