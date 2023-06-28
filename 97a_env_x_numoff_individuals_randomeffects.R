@@ -379,6 +379,10 @@ tmb3 <- glmmTMB(num.off ~ mean.b + mean.tempk + (1|id),
                 family = nbinom2)
 summary(tmb3) ## same final set of predictor variables as without the inclusion of female ID as random effect
 
+tmb4 <- glmmTMB(num.off ~ mean.b + mean.tempk, 
+                data = sub,
+                family = nbinom2)
+lrtest(tmb3, tmb4) ## NS
 
 ##### >> Summer rainy season averages / totals #####
 sub <- env.fem.ann[env.fem.ann$type == 2 & env.fem.ann$season == 1,]        ## subset to summer rainy season summary stats
@@ -404,6 +408,11 @@ tmb4 <- glmmTMB(num.off ~ mean.b + (1|id),
                 family = nbinom2)
 summary(tmb4) ## same as result without random effect
 
+tmb5 <- glmmTMB(num.off ~ mean.b, 
+                data = sub,
+                family = nbinom2)
+lrtest(tmb4, tmb5)
+
 ##### >> Winter rainy season averages / totals #####
 sub <- env.fem.ann[env.fem.ann$type == 2 & env.fem.ann$season == 2,]        ## subset to winter rainy season summary stats
 
@@ -422,3 +431,8 @@ tmb3 <- glmmTMB(num.off ~ mean.w + mean.tempk + (1|id),
                 data = sub,
                 family = nbinom2)
 summary(tmb3) ## same as result without random effect
+
+tmb4 <- glmmTMB(num.off ~ mean.w + mean.tempk, 
+                data = sub,
+                family = nbinom2)
+lrtest(tmb3, tmb4)

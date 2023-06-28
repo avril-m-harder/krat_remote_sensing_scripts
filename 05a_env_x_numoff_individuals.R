@@ -619,6 +619,7 @@ nb3 <- glm.nb(num.off ~ mean.b + mean.tempk,
               data = sub)
 summary(nb3)
 cor(sub$mean.b, sub$mean.tempk) ## predictors correlation coefficient = -0.042
+(nb3$null.deviance/nb3$deviance)/nb3$null.deviance ## = 0.0013
 
 plot(sub$mean.b, sub$num.off, pch = 19, col = alpha(b.col, 0.8), xlab = 'Mean annual brightness',
      ylab = 'Number of offspring')
@@ -664,7 +665,7 @@ for(y in sort(unique(sub$year))){
   OUT <- rbind(OUT, save)
 }
 
-pdf('/Users/Avril/Desktop/offspring_by_numadultfemales.pdf', width = 6, height = 5)
+# pdf('/Users/Avril/Desktop/offspring_by_numadultfemales.pdf', width = 6, height = 5)
 OUT3 <- NULL
 plot(0,0, xlim = c(min(OUT[,2]), max(OUT[,2])), ylim = c(0, 10), xlab = 'Number of reproductive females',
      ylab = 'Number of offspring (by individual)')
@@ -707,6 +708,8 @@ summary(nb4)
 plot(sub$mean.b, sub$num.off, pch = 19, col = alpha(b.col, 0.8), xlab = 'Mean summer rainy season brightness',
      ylab = 'Number of offspring')
 
+(nb4$null.deviance/nb4$deviance)/nb4$null.deviance ## 0.0013
+
 # plot(sub$mean.b, sub$num.off, pch = 19, col = alpha(b.col, 0.4))
 #   new.x <- as.data.frame(seq(min(sub$mean.b), max(sub$mean.b), length.out = 100))
 #   colnames(new.x) <- 'mean.b'
@@ -746,6 +749,7 @@ nb3 <- glm.nb(num.off ~ mean.w + mean.tempk,
               data = sub)
 summary(nb3)
 cor(sub$mean.w, sub$mean.tempk) ## predictors correlation coefficient = 0.03
+(nb3$null.deviance/nb3$deviance)/nb3$null.deviance ## 0.0013
 
 plot(sub$mean.w, sub$num.off, pch = 19, col = alpha(w.col, 0.8), xlab = 'Mean winter rainy season wetness',
      ylab = 'Number of offspring')
