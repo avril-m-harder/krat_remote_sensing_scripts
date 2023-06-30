@@ -611,6 +611,7 @@ cor(sub[,c(7:10)])
 
 ##### Final model for each time frame #####
 library(jtools)
+library(glmtoolbox)
 # pdf('/Users/Avril/Desktop/numoff_sig_predictors.pdf', width = 6, height = 5)
 ##### >> Annual #####
 sub <- env.fem.ann[env.fem.ann$type == 1,]        ## subset to annual summary stats
@@ -619,7 +620,16 @@ nb3 <- glm.nb(num.off ~ mean.b + mean.tempk,
               data = sub)
 summary(nb3)
 cor(sub$mean.b, sub$mean.tempk) ## predictors correlation coefficient = -0.042
-(nb3$null.deviance/nb3$deviance)/nb3$null.deviance ## = 0.0013
+
+## check GVIF with glmtoolbox, full and final models
+mod1 <- overglm(num.off ~ mean.g + mean.w + mean.b + mean.tempk, 
+                data = sub, family = "nbf")
+gvif(mod1)
+
+mod2 <- overglm(num.off ~ mean.b + mean.tempk, 
+                data = sub, family = "nbf")
+gvif(mod2)
+
 
 plot(sub$mean.b, sub$num.off, pch = 19, col = alpha(b.col, 0.8), xlab = 'Mean annual brightness',
      ylab = 'Number of offspring')
@@ -705,10 +715,18 @@ nb4 <- glm.nb(num.off ~ mean.b,
               data = sub)
 summary(nb4)
 
+## check GVIF with glmtoolbox, full and final models
+mod1 <- overglm(num.off ~ mean.g + mean.w + mean.b + mean.tempk, 
+                data = sub, family = "nbf")
+gvif(mod1)
+
+mod2 <- overglm(num.off ~ mean.b, 
+                data = sub, family = "nbf")
+gvif(mod2)
+
 plot(sub$mean.b, sub$num.off, pch = 19, col = alpha(b.col, 0.8), xlab = 'Mean summer rainy season brightness',
      ylab = 'Number of offspring')
 
-(nb4$null.deviance/nb4$deviance)/nb4$null.deviance ## 0.0013
 
 # plot(sub$mean.b, sub$num.off, pch = 19, col = alpha(b.col, 0.4))
 #   new.x <- as.data.frame(seq(min(sub$mean.b), max(sub$mean.b), length.out = 100))
@@ -749,7 +767,15 @@ nb3 <- glm.nb(num.off ~ mean.w + mean.tempk,
               data = sub)
 summary(nb3)
 cor(sub$mean.w, sub$mean.tempk) ## predictors correlation coefficient = 0.03
-(nb3$null.deviance/nb3$deviance)/nb3$null.deviance ## 0.0013
+
+## check GVIF with glmtoolbox, full and final models
+mod1 <- overglm(num.off ~ mean.g + mean.w + mean.b + mean.tempk, 
+                data = sub, family = "nbf")
+gvif(mod1)
+
+mod2 <- overglm(num.off ~ mean.w + mean.tempk, 
+                data = sub, family = "nbf")
+gvif(mod2)
 
 plot(sub$mean.w, sub$num.off, pch = 19, col = alpha(w.col, 0.8), xlab = 'Mean winter rainy season wetness',
      ylab = 'Number of offspring')
