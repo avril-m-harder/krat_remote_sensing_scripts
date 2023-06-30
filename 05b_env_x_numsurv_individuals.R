@@ -583,6 +583,7 @@ summary(nb4) ## not significant
 
 ##### Final model for each time frame #####
 library(jtools)
+library(glmtoolbox)
 # pdf('/Users/Avril/Desktop/numsurv_sig_predictors.pdf', width = 6, height = 5)
 ## Annual
 sub <- env.fem.ann[env.fem.ann$type == 1,]        ## subset to annual summary stats
@@ -590,6 +591,11 @@ sub$mean.tempk <- sub$mean.tempk - 273.15
 nb4 <- glm.nb(num.surv ~ mean.tempk, 
               data = sub)
 summary(nb4) ## p = 8.3e-6
+
+## check GVIF with glmtoolbox, full and final models
+mod1 <- overglm(num.off ~ mean.g + mean.w + mean.b + mean.tempk, 
+                data = sub, family = "nbf")
+gvif(mod1)
 
 # plot(sub$mean.tempk-273.15, sub$num.off, pch = 19, col = alpha(t.col, 0.8), xlab = 'Mean annual surface temperature (deg C)',
 #      ylab = 'Number of surviving offspring')
@@ -613,6 +619,11 @@ sub <- env.fem.ann[env.fem.ann$type == 2 & env.fem.ann$season == 1,]        ## s
 nb4 <- glm.nb(num.surv ~ mean.b, 
               data = sub)
 summary(nb4) ## p = 0.04
+
+## check GVIF with glmtoolbox, full and final models
+mod1 <- overglm(num.off ~ mean.g + mean.w + mean.b + mean.tempk, 
+                data = sub, family = "nbf")
+gvif(mod1)
 
 plot(sub$mean.b, sub$num.off, pch = 19, col = alpha(b.col, 0.8), xlab = 'Mean summer rainy season brightness',
      ylab = 'Number of surviving offspring')
