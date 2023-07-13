@@ -34,6 +34,8 @@ cols <- c(5:8,15,18,21,24)
 colnames(temp.dat)[cols]
 names <- c('Precipitation (mm)','Mean temperature (C)','Min temperature (C)','Max temperature (C)','Greenness','Wetness','Brightness','Temp K')
 
+write.csv(temp.dat[c(1:4, cols)], '/Users/Avril/Desktop/population_annual_means.csv', row.names = FALSE)
+
 pdf('/Users/Avril/Desktop/pop-level_dat_annual_activemnds.pdf', width = 12, height = 6)
 par(mfrow = c(2,4), mar = c(4.6, 4.1, 1.1, 1.1))
 k <- 1
@@ -62,6 +64,8 @@ cols <- c(5:8,13,16,19,22)
 colnames(temp.dat)[cols]
 names <- c('Precipitation (mm)','Mean temperature (C)','Min temperature (C)','Max temperature (C)','Greenness','Wetness','Brightness','Temp K')
 
+write.csv(temp.dat[c(1:4, cols)], '/Users/Avril/Desktop/population_summer_means.csv', row.names = FALSE)
+
 pdf('/Users/Avril/Desktop/pop-level_dat_summer_activemnds.pdf', width = 12, height = 6)
 par(mfrow = c(2,4), mar = c(4.6, 4.1, 1.1, 1.1))
 k <- 1
@@ -89,6 +93,8 @@ temp.dat <- merge(temp.dat, sub.tc, by.x = 'year', by.y = 'offspring.year')
 cols <- c(5:8,13,16,19,22)
 colnames(temp.dat)[cols]
 names <- c('Precipitation (mm)','Mean temperature (C)','Min temperature (C)','Max temperature (C)','Greenness','Wetness','Brightness','Temp K')
+
+write.csv(temp.dat[c(1:4, cols)], '/Users/Avril/Desktop/population_winter_means.csv', row.names = FALSE)
 
 pdf('/Users/Avril/Desktop/pop-level_dat_winter_activemnds.pdf', width = 12, height = 6)
 par(mfrow = c(2,4), mar = c(4.6, 4.1, 1.1, 1.1))
@@ -379,6 +385,8 @@ cols <- c(11:14,21,24,27,30)
 colnames(temp.dat)[cols]
 names <- c('Precipitation (mm)','Mean temperature (C)','Min temperature (C)','Max temperature (C)','Greenness','Wetness','Brightness','Temp K')
 
+write.csv(temp.dat[c(1:10, cols)], '/Users/Avril/Desktop/annual_population_fitness_offspring.csv', row.names = FALSE)
+
 pdf('/Users/Avril/Desktop/pop-level_dat_annual.pdf', width = 12, height = 6)
 par(mfrow = c(2,4), mar = c(4.6, 4.1, 1.1, 1.1))
 k <- 1
@@ -407,6 +415,8 @@ cols <- c(11:14,19,22,25,28)
 colnames(temp.dat)[cols]
 names <- c('Precipitation (mm)','Mean temperature (C)','Min temperature (C)','Max temperature (C)','Greenness','Wetness','Brightness','Temp K')
 
+write.csv(temp.dat[c(1:10, cols)], '/Users/Avril/Desktop/summer_population_fitness_offspring.csv', row.names = FALSE)
+
 pdf('/Users/Avril/Desktop/pop-level_dat_summer.pdf', width = 12, height = 6)
 par(mfrow = c(2,4), mar = c(4.6, 4.1, 1.1, 1.1))
 k <- 1
@@ -433,6 +443,8 @@ temp.dat <- merge(temp.dat, sub.tc, by.x = 'year', by.y = 'offspring.year')
 cols <- c(11:14,19,22,25,28)
 colnames(temp.dat)[cols]
 names <- c('Precipitation (mm)','Mean temperature (C)','Min temperature (C)','Max temperature (C)','Greenness','Wetness','Brightness','Temp K')
+
+write.csv(temp.dat[c(1:10, cols)], '/Users/Avril/Desktop/winter_population_fitness_offspring.csv', row.names = FALSE)
 
 pdf('/Users/Avril/Desktop/pop-level_dat_winter.pdf', width = 12, height = 6)
 par(mfrow = c(2,4), mar = c(4.6, 4.1, 1.1, 1.1))
