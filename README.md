@@ -1,6 +1,6 @@
 # krat_remote_sensing_scripts
 
-### Scripts and files associated with manuscript, *Remotely sensed environmental measurements detect decoupled processes driving population dynamics at contrasting scales*. Available at *([Ecology and Evolution](https://onlinelibrary.wiley.com/doi/10.1002/ece3.10358))*.
+### Scripts and files associated with manuscript, *Remotely sensed environmental measurements detect decoupled processes driving population dynamics at contrasting scales*. Available at *[Ecology and Evolution](https://onlinelibrary.wiley.com/doi/10.1002/ece3.10358)*.
 
 #### Scripts for downloading Landsat 5 TM scenes and conducting all downstream transformations and statistical analyses
 * *01_landsat2_dl_aws_s3.sh*: downloads scenes of interest (listed in c2l2_scenes_full_list.txt) using AWS s3api ([USGS guide to commercial cloud downloads](https://www.usgs.gov/node/28686))
